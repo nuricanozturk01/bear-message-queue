@@ -112,11 +112,11 @@ Build BearMQ from source and install dependencies:
 
     <dependencies>
       .....
-       <dependendency>
+       <dependency>
          <groupId>com.bearmq</groupId>
          <artifactId>bearmq-spring-client</artifactId>
          <version>0.0.1</version>
-       </dependendency>
+       </dependency>
       .....
     </dependencies>
 
