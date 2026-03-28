@@ -1,0 +1,17 @@
+.topology-mermaid-wrap {
+  overflow: hidden;
+}
+
+.topology-mermaid-host {
+  min-height: 220px;
+  overflow: auto;
+
+  :deep(svg) {
+    max-width: 100%;
+    height: auto !important;
+  }
+}
+
+.topology-mermaid-loading {
+  min-height: 8rem;
+}

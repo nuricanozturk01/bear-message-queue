@@ -1,0 +1,15 @@
+<div class="topology-mermaid-wrap rounded-3 border shadow-sm bg-body">
+  <div
+    class="topology-mermaid-toolbar small text-body-secondary px-3 py-2 border-bottom d-flex align-items-center gap-2 flex-wrap"
+  >
+    <i class="bi bi-bezier2 text-primary"></i>
+    <span>
+      Interactive topology (Mermaid): one node per exchange or queue — shared destinations (e.g.
+      exchange B) appear once with all inbound and outbound edges.
+    </span>
+  </div>
+  <div #host class="topology-mermaid-host d-flex justify-content-center align-items-start p-3"></div>
+  @if (renderError(); as err) {
+    <div class="alert alert-warning small mx-3 mb-3">{{ err }}</div>
+  }
+</div>

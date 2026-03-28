@@ -33,6 +33,21 @@ export interface QueueSummaryDto {
   status: string;
 }
 
+/** Non-destructive peek: does not consume messages. */
+export interface PeekedMessageDto {
+  sequence: number;
+  json?: unknown;
+  text?: string;
+  base64?: string;
+}
+
+export interface QueuePeekResponseDto {
+  runtimeLoaded: boolean;
+  queueName: string;
+  truncated: boolean;
+  messages: PeekedMessageDto[];
+}
+
 export interface ExchangeSummaryDto {
   id: string;
   name: string;
@@ -95,6 +110,9 @@ export interface QueueMetricDto {
   name: string;
   status: string;
   runtimeLoaded: boolean;
+  /** -1 when the queue is not loaded in broker runtime */
+  approximatePendingMessages: number;
+  approximatePendingCapped: boolean;
 }
 
 export interface VhostMetricsDto {

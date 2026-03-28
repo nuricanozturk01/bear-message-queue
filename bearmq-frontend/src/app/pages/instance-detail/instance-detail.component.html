@@ -95,6 +95,13 @@
       </li>
       <li class="nav-item flex-shrink-0">
         <button type="button" class="nav-link d-flex align-items-center gap-2 px-3"
+                [class.active]="tab() === 'preview'" (click)="setTab('preview')">
+          <i class="bi bi-diagram-3"></i><span class="d-none d-sm-inline">Preview</span>
+          @if (bindings().length > 0) { <span class="badge text-bg-secondary rounded-pill">{{ bindings().length }}</span> }
+        </button>
+      </li>
+      <li class="nav-item flex-shrink-0">
+        <button type="button" class="nav-link d-flex align-items-center gap-2 px-3"
                 [class.active]="tab() === 'queues'" (click)="setTab('queues')">
           <i class="bi bi-collection"></i><span class="d-none d-sm-inline">Queues</span>
           @if (queues().length > 0) { <span class="badge text-bg-secondary rounded-pill">{{ queues().length }}</span> }
@@ -172,6 +179,67 @@
       </div>
     }
 
+    <!-- ── Topology preview (Mermaid) ─────────────────────────────── -->
+    @if (tab() === 'preview') {
+      <p class="text-body-secondary small mb-3">
+        Visual map of your bindings: one graph, shared nodes, and labeled edges (routing keys). Pan
+        and zoom inside the diagram area when it overflows.
+      </p>
+      @if (bindings().length === 0) {
+        <div class="card p-5 text-center text-body-secondary">
+          <i class="bi bi-diagram-3 d-block mb-3" style="font-size:2.5rem;opacity:0.5"></i>
+          No bindings yet. Apply a topology to see the diagram here.
+        </div>
+      } @else {
+        <div class="mb-4">
+          <app-topology-mermaid [bindings]="bindings()" />
+        </div>
+      }
+      @if (topologyOrphanExchanges().length > 0 || topologyOrphanQueues().length > 0) {
+        <div class="row g-3">
+          @if (topologyOrphanExchanges().length > 0) {
+            <div class="col-12 col-md-6">
+              <div class="card h-100 border-secondary-subtle">
+                <div class="card-header bg-transparent small fw-semibold py-2">
+                  <i class="bi bi-info-circle me-1"></i>No outbound bindings
+                </div>
+                <div class="card-body small py-3">
+                  <p class="text-body-secondary mb-2">
+                    These exchanges are not used as a binding source (clients may still publish
+                    directly where your app allows).
+                  </p>
+                  <div class="d-flex flex-wrap gap-1">
+                    @for (name of topologyOrphanExchanges(); track name) {
+                      <span class="badge rounded-pill topology-pill-ex font-monospace">{{ name }}</span>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+          @if (topologyOrphanQueues().length > 0) {
+            <div class="col-12 col-md-6">
+              <div class="card h-100 border-secondary-subtle">
+                <div class="card-header bg-transparent small fw-semibold py-2">
+                  <i class="bi bi-info-circle me-1"></i>No inbound bindings
+                </div>
+                <div class="card-body small py-3">
+                  <p class="text-body-secondary mb-2">
+                    These queues are not bound to any exchange; only direct enqueue delivers here.
+                  </p>
+                  <div class="d-flex flex-wrap gap-1">
+                    @for (name of topologyOrphanQueues(); track name) {
+                      <span class="badge rounded-pill topology-pill-q font-monospace">{{ name }}</span>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    }
+
     <!-- ── Queues tab ──────────────────────────────────────────────── -->
     @if (tab() === 'queues') {
       <div class="card overflow-hidden">
@@ -204,14 +272,24 @@
                     </span>
                   </td>
                   <td class="text-end">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-danger"
-                      title="Remove queue"
-                      (click)="confirmDelete('queue', q.id, q.name, $event)"
-                    >
-                      <i class="bi bi-trash3"></i>
-                    </button>
+                    <div class="btn-group btn-group-sm" role="group">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        title="Peek last pending messages (non-consuming)"
+                        (click)="openPeek(q); $event.stopPropagation()"
+                      >
+                        <i class="bi bi-eye"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-outline-danger"
+                        title="Remove queue"
+                        (click)="confirmDelete('queue', q.id, q.name, $event)"
+                      >
+                        <i class="bi bi-trash3"></i>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               } @empty {
@@ -372,7 +450,7 @@
         @if (metrics()!.queues.length > 0) {
           <div class="card overflow-hidden">
             <div class="card-header bg-transparent border-bottom py-3">
-              <span class="fw-semibold small">Queue runtime status</span>
+              <span class="fw-semibold small">Queue runtime &amp; backlog</span>
             </div>
             <div class="table-responsive">
               <table class="table table-hover mb-0 align-middle small">
@@ -381,6 +459,7 @@
                     <th>Queue</th>
                     <th>Status</th>
                     <th>Runtime loaded</th>
+                    <th class="text-end">Pending (~)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -399,10 +478,16 @@
                           <span class="badge text-bg-secondary"><i class="bi bi-dash me-1"></i>Not loaded</span>
                         }
                       </td>
+                      <td class="text-end font-monospace">
+                        {{ pendingMessagesLabel(q) }}
+                      </td>
                     </tr>
                   }
                 </tbody>
               </table>
+            </div>
+            <div class="card-footer bg-transparent small text-body-secondary border-top-0 pt-0">
+              Pending is an approximate unread count from the broker consumer offset (not loaded in this process shows —; counts cap at 10,000+).
             </div>
           </div>
         }
@@ -422,6 +507,84 @@
       </div>
     }
 
+  </div>
+}
+
+@if (peekTarget(); as pk) {
+  <div class="modal d-block" tabindex="-1" role="dialog" style="background: rgba(0, 0, 0, 0.5)">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header border-0 pb-0">
+          <div>
+            <h5 class="modal-title mb-0">
+              Queue messages
+              <span class="font-monospace text-primary ms-1">{{ pk.queueName }}</span>
+            </h5>
+            <p class="small text-body-secondary mb-0 mt-1">
+              Up to the <strong>5 newest</strong> pending payloads (consumer tail). Read-only — does not
+              consume or advance the consumer offset.
+            </p>
+          </div>
+          <button type="button" class="btn-close" (click)="closePeek()" aria-label="Close"></button>
+        </div>
+        <div class="modal-body pt-3">
+          <div class="alert alert-info small py-2 mb-3">
+            <i class="bi bi-shield-check me-1"></i>
+            This view is <strong>non-destructive</strong>: messages stay on the queue and are not
+            counted as delivered.
+          </div>
+          @if (peekLoading()) {
+            <div class="text-center py-4 text-body-secondary">
+              <div class="spinner-border spinner-border-sm me-2"></div>
+              Loading…
+            </div>
+          }
+          @if (peekError(); as err) {
+            <div class="alert alert-danger small mb-0">{{ err }}</div>
+          }
+          @if (peekData(); as d) {
+            @if (!d.runtimeLoaded) {
+              <div class="alert alert-warning small">
+                This queue is not loaded in the running broker process, so pending payloads cannot be
+                read (runtime offline or queue not opened).
+              </div>
+            }
+            @if (d.runtimeLoaded && d.messages.length === 0) {
+              <p class="text-body-secondary small mb-0">No pending messages.</p>
+            }
+            @for (m of d.messages; track m.sequence) {
+              <div class="peek-message-block mb-3">
+                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                  <span class="badge text-bg-secondary">#{{ m.sequence }}</span>
+                  @switch (peekBodyKind(m)) {
+                    @case ('json') {
+                      <span class="badge text-bg-primary">JSON</span>
+                    }
+                    @case ('text') {
+                      <span class="badge text-bg-secondary">Text</span>
+                    }
+                    @case ('base64') {
+                      <span class="badge text-bg-dark">Base64 (binary)</span>
+                    }
+                  }
+                </div>
+                <pre class="peek-json-pre">{{ peekBodyDisplay(m) }}</pre>
+              </div>
+            }
+            @if (d.truncated) {
+              <p class="small text-body-secondary mb-0 border-top pt-2">
+                <i class="bi bi-three-dots me-1"></i>More than five messages are pending (or the peek
+                scan limit was reached). Only the five most recent in the backlog are shown, oldest of
+                those first.
+              </p>
+            }
+          }
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-primary px-4" (click)="closePeek()">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 }
 

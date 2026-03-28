@@ -9,6 +9,7 @@ import type {
   ExchangeSummaryDto,
   MetricsSummaryDto,
   Page,
+  QueuePeekResponseDto,
   QueueSummaryDto,
   ResourceMetricsDto,
   UserDto,
@@ -45,6 +46,13 @@ export class BrokerService {
 
   listQueues(vhostId: string): Observable<QueueSummaryDto[]> {
     return this.http.get<QueueSummaryDto[]>(`${this.base}/vhost/${vhostId}/queues`);
+  }
+
+  /** Peek last 5 pending payloads from consumer tail (does not dequeue). */
+  peekQueue(vhostId: string, queueId: string): Observable<QueuePeekResponseDto> {
+    return this.http.get<QueuePeekResponseDto>(
+      `${this.base}/vhost/${vhostId}/queues/${queueId}/peek`,
+    );
   }
 
   listExchanges(vhostId: string): Observable<ExchangeSummaryDto[]> {

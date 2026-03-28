@@ -45,3 +45,34 @@
     }
   }
 }
+
+.topology-pill-ex {
+  background: rgba(124, 58, 237, 0.12);
+  color: #5b21b6;
+  font-weight: 500;
+}
+
+.topology-pill-q {
+  background: rgba(8, 145, 178, 0.14);
+  color: #0e7490;
+  font-weight: 500;
+}
+
+.peek-message-block:last-child {
+  margin-bottom: 0 !important;
+}
+
+.peek-json-pre {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  border-radius: 0.35rem;
+  border: 1px solid var(--bs-border-color);
+  background: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

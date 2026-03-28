@@ -7,18 +7,29 @@ import { ToastService } from '../../core/services/toast.service';
 import type {
   BindingSummaryDto,
   ExchangeSummaryDto,
+  PeekedMessageDto,
+  QueueMetricDto,
+  QueuePeekResponseDto,
   QueueSummaryDto,
   VhostMetricsDto,
   VirtualHostInfo,
 } from '../../core/models/api.types';
 import { SnippetComponent, type SnippetTab } from '../../shared/snippet/snippet.component';
+import { TopologyMermaidComponent } from '../../shared/topology-mermaid/topology-mermaid.component';
 
-type TabId = 'overview' | 'queues' | 'exchanges' | 'bindings' | 'metrics' | 'snippets';
+type TabId =
+  | 'overview'
+  | 'preview'
+  | 'queues'
+  | 'exchanges'
+  | 'bindings'
+  | 'metrics'
+  | 'snippets';
 
 @Component({
   selector: 'app-instance-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, SnippetComponent],
+  imports: [CommonModule, RouterLink, SnippetComponent, TopologyMermaidComponent],
   templateUrl: './instance-detail.component.html',
   styleUrl: './instance-detail.component.scss',
 })
@@ -44,6 +55,29 @@ export class InstanceDetailComponent {
     label: string;
   } | null>(null);
   readonly deleteBusy = signal(false);
+
+  readonly peekTarget = signal<{ queueId: string; queueName: string } | null>(null);
+  readonly peekData = signal<QueuePeekResponseDto | null>(null);
+  readonly peekLoading = signal(false);
+  readonly peekError = signal<string | null>(null);
+
+  /** Exchanges that never appear as a binding source (may still receive via default exchange). */
+  readonly topologyOrphanExchanges = computed(() => {
+    const sources = new Set(this.bindings().map((b) => b.sourceExchangeName));
+    return this.exchanges()
+      .filter((e) => !sources.has(e.name))
+      .map((e) => e.name);
+  });
+
+  /** Queues with no inbound binding from an exchange. */
+  readonly topologyOrphanQueues = computed(() => {
+    const bound = new Set(
+      this.bindings()
+        .filter((b) => b.destinationType === 'QUEUE')
+        .map((b) => b.destinationName),
+    );
+    return this.queues().filter((q) => !bound.has(q.name)).map((q) => q.name);
+  });
 
   readonly snippetTabs = computed<SnippetTab[]>(() => {
     const v = this.vhost();
@@ -299,6 +333,68 @@ export class InstanceDetailComponent {
 
   setTab(t: TabId): void {
     this.tab.set(t);
+  }
+
+  openPeek(q: QueueSummaryDto): void {
+    const v = this.vhost();
+    if (!v) return;
+    this.peekTarget.set({ queueId: q.id, queueName: q.name });
+    this.peekData.set(null);
+    this.peekError.set(null);
+    this.peekLoading.set(true);
+    this.broker.peekQueue(v.id, q.id).subscribe({
+      next: (d) => {
+        this.peekData.set(d);
+        this.peekLoading.set(false);
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.peekError.set(err.error?.message ?? 'Could not load messages.');
+        this.peekLoading.set(false);
+      },
+    });
+  }
+
+  closePeek(): void {
+    this.peekTarget.set(null);
+    this.peekData.set(null);
+    this.peekError.set(null);
+    this.peekLoading.set(false);
+  }
+
+  peekBodyKind(m: PeekedMessageDto): 'json' | 'text' | 'base64' {
+    if (m.json !== undefined && m.json !== null) {
+      return 'json';
+    }
+    if (m.text != null) {
+      return 'text';
+    }
+    if (m.base64 != null) {
+      return 'base64';
+    }
+    return 'text';
+  }
+
+  peekBodyDisplay(m: PeekedMessageDto): string {
+    if (m.json !== undefined && m.json !== null) {
+      return JSON.stringify(m.json, null, 2);
+    }
+    if (m.text != null) {
+      return m.text;
+    }
+    if (m.base64 != null) {
+      return m.base64;
+    }
+    return '';
+  }
+
+  pendingMessagesLabel(q: QueueMetricDto): string {
+    if (q.approximatePendingMessages < 0) {
+      return '—';
+    }
+    if (q.approximatePendingCapped) {
+      return `${q.approximatePendingMessages}+`;
+    }
+    return String(q.approximatePendingMessages);
   }
 
   async copy(text: string, label: string): Promise<void> {
