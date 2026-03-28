@@ -1,339 +1,308 @@
 # BearMQ
 
 <div align="center">
-  <img src="media/bearmq.png" width="30%" alt="BearMQ Logo"/>
 
-<em>A lightweight, distributed message queue system for modern architectures</em>
+<img src="media/bearmq.png" width="220" alt="BearMQ logo"/>
 
-**Hobby Project for fun 🚀**
+**A lightweight message broker and control plane for JVM-centric, queue-driven architectures.**
 
-![JSON](https://img.shields.io/badge/JSON-000000.svg?style=flat&logo=JSON&logoColor=white)
-![Markdown](https://img.shields.io/badge/Markdown-000000.svg?style=flat&logo=Markdown&logoColor=white)
-![Spring](https://img.shields.io/badge/Spring-000000.svg?style=flat&logo=Spring&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED.svg?style=flat&logo=Docker&logoColor=white)
+[![Spring](https://img.shields.io/badge/Spring_Boot-6DB33F?style=flat&logo=spring&logoColor=white)](https://spring.io/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 </div>
 
 ---
 
-## 📋 Table of Contents
+## Table of contents
 
-- [Overview](#-overview)
-- [Getting Started](#-getting-started)
-    - [Prerequisites](#-prerequisites)
-    - [Installation](#-installation)
-- [Features](#-features)
-- [Configuration](#-configuration)
-- [Roadmap](#-roadmap)
-- [Example Usage](#example-usage)
-- [Demo Architecture](#demo-architecture)
+- [Overview](#overview)
+- [Brand assets and UI themes](#brand-assets-and-ui-themes)
+  - [Repository media (root)](#repository-media-root)
+  - [Dark theme (`media/dark`)](#dark-theme-mediadark)
+  - [Light theme (`media/light`)](#light-theme-medialight)
+- [Features](#features)
+- [Getting started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Configuration](#configuration)
+- [Roadmap](#roadmap)
+- [Example usage](#example-usage)
+- [Demo architecture](#demo-architecture)
 - [Video](#video)
-- [License](#-license)
-- [Support Me](#-support-my-work)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+- [Support](#support)
 
 ---
 
-## ✨ Overview
+## Overview
 
-BearMQ is a lightweight, distributed message queue system designed to enable reliable and scalable asynchronous
-communication in modern architectures. Built for JVM environments, it simplifies deployment and integration, making it
-easier to establish decoupled interactions across distributed services.
+BearMQ is a message queue system built around **virtual hosts**, **exchanges**, **queues**, and **bindings**, with a **Spring Boot** broker, **REST API**, **metrics**, and an **Angular** management UI. It targets teams that want a clear topology model and a small operational footprint on the JVM.
 
-### Why BearMQ?
+**Highlights**
 
-This project focuses on streamlining message-driven workflows with core features such as:
-
-- 🧩 **Modular Architecture**: Supports exchanges, queues, and bindings to model complex messaging topologies
-- 🚀 **Spring Boot Integration**: Provides configuration metadata and simple setup for Spring applications
-- 🔄 **Reliable Message Delivery**: Includes retry mechanisms and custom exceptions for robustness
-- 🛡️ **Multi-Tenant Support**: Manages virtual hosts and tenant lifecycle for scalable multi-tenant deployments
-- 📊 **Monitoring & Metrics**: Exposes runtime metrics to track server health and message throughput
+| Area | What you get |
+|------|----------------|
+| **Topology** | Declarative exchanges, queues, and bindings (including topic-style routing). |
+| **Runtime** | Broker process with persistence-oriented queue storage (e.g. Chronicle Queue). |
+| **Platform** | Multi-tenant style accounts, JWT-backed API, optional Docker-based local stack. |
+| **Observability** | Metrics endpoints and UI dashboards for instances and resources. |
 
 ---
 
-## 🔌 Features
+## Brand assets and UI themes
 
-| Component         | Details                                                                                                                                                                                          |
-|:------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Architecture**  | • Distributed message broker with producer-consumer model<br>• Supports multiple queues<br>• Built on Java with Spring Boot                                                                      |
-| **Code Quality**  | • Uses Lombok for boilerplate reduction<br>• Follows standard Maven project structure<br>• Includes configuration validation via `spring-configuration-metadata.json`                            |
-| **Documentation** | • Provides `docker-compose.yml` for container setup<br>• Includes comprehensive README with setup instructions<br>• Configuration files (`application.yml`, `jvm.config`) documented             |
-| **Integrations**  | • Spring Boot integration via `bearmq-spring-client`<br>• PostgreSQL support for persistence<br>• Uses Jackson for JSON serialization<br>• Supports Docker for containerization                  |
-| **Modularity**    | • Modular Maven modules (`bearmq-spring-client`, `broker`, `demo`)<br>• Clear separation of core broker logic and client SDK                                                                     |
-| **Performance**   | • Uses Chronicle Queue for high-performance message storage<br>• Asynchronous processing via Spring's `@Async`                                                                                   |
-| **Security**      | • Basic security via Spring Security<br>• Configuration options for SSL/TLS in `application.yml`                                                                                                 |
-| **Dependencies**  | • **Core**: `spring`, `spring-cloud-dependencies`, `spring-retry`<br>• **Messaging**: `chronicle-queue`, `ulid-creator`<br>• **Utilities**: `commons-codec`, `commons-lang3`, `jackson-databind` |
+All promotional screenshots and logos live under [`media/`](media/). Paths are relative to the **repository root** so they render correctly on GitHub.
+
+### Repository media (root)
+
+| File | Role |
+|------|------|
+| [`media/bearmq.png`](media/bearmq.png) | Primary **logo** used in the README header and branding. |
+| [`media/demo.png`](media/demo.png) | **Architecture / demo** diagram illustrating components and data flow. |
+
+### Dark theme (`media/dark`)
+
+Screens captured with the **dark** UI theme (GitHub-dark inspired palette in the console). Use these for docs, slides, or store listings when you want a dark presentation.
+
+| File | Suggested use |
+|------|----------------|
+| [`media/dark/login.png`](media/dark/login.png) | Sign-in screen. |
+| [`media/dark/dashboard.png`](media/dark/dashboard.png) | Main dashboard (overview, API key, metrics snapshot). |
+| [`media/dark/instances.png`](media/dark/instances.png) | Virtual host (**instances**) list. |
+| [`media/dark/instance-details-1.png`](media/dark/instance-details-1.png) | Instance detail — tab / section **1**. |
+| [`media/dark/instance-details-2.png`](media/dark/instance-details-2.png) | Instance detail — tab / section **2**. |
+| [`media/dark/instance-details-3.png`](media/dark/instance-details-3.png) | Instance detail — tab / section **3**. |
+| [`media/dark/instance-details-4.png`](media/dark/instance-details-4.png) | Instance detail — tab / section **4**. |
+| [`media/dark/instance-details-5.png`](media/dark/instance-details-5.png) | Instance detail — tab / section **5**. |
+| [`media/dark/instance-details-6.png`](media/dark/instance-details-6.png) | Instance detail — tab / section **6**. |
+| [`media/dark/topology.png`](media/dark/topology.png) | Topology editor (JSON / schema apply). |
+| [`media/dark/teams.png`](media/dark/teams.png) | Teams / user administration (admin). |
+| [`media/dark/settings.png`](media/dark/settings.png) | Account security (e.g. password change). |
+
+> **Naming note:** Dark theme instance shots use the prefix `instance-details-*` (plural “details”).
+
+### Light theme (`media/light`)
+
+Screens captured with the **light** UI theme. Pair with `media/dark` when you need before/after or theme comparison.
+
+| File | Suggested use |
+|------|----------------|
+| [`media/light/login.png`](media/light/login.png) | Sign-in screen. |
+| [`media/light/password-reset.png`](media/light/password-reset.png) | Password / credential recovery flow (where applicable). |
+| [`media/light/dashboard.png`](media/light/dashboard.png) | Main dashboard. |
+| [`media/light/instances-list.png`](media/light/instances-list.png) | Virtual host (**instances**) list. |
+| [`media/light/instance-detail-1.png`](media/light/instance-detail-1.png) | Instance detail — tab / section **1**. |
+| [`media/light/instance-detail-2.png`](media/light/instance-detail-2.png) | Instance detail — tab / section **2**. |
+| [`media/light/instance-detail-3.png`](media/light/instance-detail-3.png) | Instance detail — tab / section **3**. |
+| [`media/light/instance-detail-4.png`](media/light/instance-detail-4.png) | Instance detail — tab / section **4**. |
+| [`media/light/instance-detail-5.png`](media/light/instance-detail-5.png) | Instance detail — tab / section **5**. |
+| [`media/light/instance-detail-6.png`](media/light/instance-detail-6.png) | Instance detail — tab / section **6**. |
+| [`media/light/topology.png`](media/light/topology.png) | Topology editor. |
+| [`media/light/team.png`](media/light/team.png) | Team / user administration (admin). |
+
+> **Naming note:** Light theme instance shots use `instance-detail-*` (singular “detail”) and a dedicated `instances-list.png` for the list view.
+
+### Using theme assets in documentation
+
+- Prefer **dark** or **light** consistently per document; mix only when comparing themes.
+- When adding new screenshots, keep the same folder convention: `media/dark/…` and `media/light/…`.
+- Update the tables above if you add or rename files so the README stays the single source of truth.
 
 ---
 
-## 🚀 Getting Started
+## Features
 
-### 📋 Prerequisites
+| Component | Details |
+|-----------|---------|
+| **Broker** | TCP messaging, virtual hosts, exchanges, queues, bindings. |
+| **API** | Spring Web MVC REST API; JWT authentication. |
+| **Persistence** | PostgreSQL for metadata; queue storage integration (e.g. Chronicle Queue). |
+| **Client** | `bearmq-spring-client` for Spring Boot apps (`@EnableBear`, `@BearListener`, templates). |
+| **UI** | Angular app: dashboard, instances, topology, teams (admin), settings; **dark / light** themes (see [UI themes](#brand-assets-and-ui-themes)). |
+| **Ops** | Docker Compose for local dependencies; configurable broker and metrics ports. |
 
-This project requires the following dependencies:
+---
 
-- **Programming Language**: Java 21
-- **Package Manager**: Maven 3.8+
-- **Container Runtime**: Docker (optional)
+## Getting started
 
-### ⚙️ Installation
+### Prerequisites
 
-Build BearMQ from source and install dependencies:
+- **Java** 21  
+- **Maven** 3.8+  
+- **Docker** (optional, for Compose-based dependencies)
 
-1. **Clone the repository**:
+### Installation
+
+1. **Clone the repository**
+
    ```bash
-   git clone https://github.com/nuricanozturk01/bearmq
-   ```
-
-2. **Navigate to the project directory**:
-   ```bash
+   git clone https://github.com/nuricanozturk01/bearmq.git
    cd bearmq
    ```
 
-3. **Install dependencies**:
+2. **Start infrastructure** (if using Docker Compose)
 
    ```bash
    docker compose up -d
    ```
+
+3. **Build the Spring client** (for local development)
+
    ```bash
    cd bearmq-spring-client
    mvn install
    ```
-   or add your **pom file**
+
+4. **Consume the client from Maven** (alternative: published repository)
+
    ```xml
-    <repositories>
-      .....
-      <repository>
-        <id>repsy</id>
-        <name>My Private Maven Repository on Repsy</name>
-        <url>https://repo.nuricanozturk.com/bearmq-spring-client</url>
-      </repository>
-      .....
-    </repositories>
+   <repositories>
+     <repository>
+       <id>repsy</id>
+       <name>BearMQ client repository</name>
+       <url>https://repo.nuricanozturk.com/bearmq-spring-client</url>
+     </repository>
+   </repositories>
 
-    <dependencies>
-      .....
-       <dependency>
-         <groupId>com.bearmq</groupId>
-         <artifactId>bearmq-spring-client</artifactId>
-         <version>0.0.1</version>
-       </dependency>
-      .....
-    </dependencies>
-
+   <dependencies>
+     <dependency>
+       <groupId>com.bearmq</groupId>
+       <artifactId>bearmq-spring-client</artifactId>
+       <version>0.0.1</version>
+     </dependency>
+   </dependencies>
    ```
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
-### JVM Options
+### JVM options (Chronicle / NIO)
 
-**Add the following JVM options**
+The broker may require reflective access for Chronicle Queue and NIO. Example:
 
-```bash
---add-opens=java.base/java.lang=ALL-UNNAMED 
---add-opens=java.base/java.lang.reflect=ALL-UNNAMED 
---add-opens=java.base/jdk.internal.misc=ALL-UNNAMED 
---add-opens=java.base/jdk.internal.ref=ALL-UNNAMED 
---add-opens=java.base/sun.nio.ch=ALL-UNNAMED 
---add-opens=java.base/java.io=ALL-UNNAMED 
---add-opens=java.base/java.nio=ALL-UNNAMED 
---add-exports=java.base/jdk.internal.misc=ALL-UNNAMED 
---add-exports=java.base/jdk.internal.ref=ALL-UNNAMED 
+```text
+--add-opens=java.base/java.lang=ALL-UNNAMED
+--add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED
+--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED
+--add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+--add-opens=java.base/java.io=ALL-UNNAMED
+--add-opens=java.base/java.nio=ALL-UNNAMED
+--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED
+--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED
 --add-exports=java.base/sun.nio.ch=ALL-UNNAMED
 ```
 
-### Application Configuration
+### Application settings
 
-Configuration is managed through `application.yml` and includes settings for:
-
-- Database connections
-- Message queue parameters
-- Security configurations
-- Monitoring endpoints
+Runtime behaviour is controlled via `application.yml` (and profiles): database, broker ports, security (JWT, CORS), metrics, and feature flags. See the `broker` and `demo` modules for concrete examples.
 
 ---
 
-## 📈 Roadmap
+## Roadmap
 
-- [x] **Task 1**: ~~Implement MVP version~~
-- [x] **Task 2**: ~~Implement Spring Security and JWT Token~~
-- [x] **Task 3**: ~~Separate Broker Server, Metrics Server and REST API~~
-- [x] **Task 4**: ~~Implement Metrics API~~
-- [x] **Task 5**: ~~Design and Implement Admin Panel~~
-- [x] **Task 6**: ~~Design and Implement SaaS Landing page and panel~~
-- [x] **Task 7**: ~~Review and solve problems (e.g., handle empty queue exceptions properly)~~
-- [ ] **Task 8**: Guarantee data integrity and prevent message loss
-- [x] **Task 9**: ~~Implement Retry operations for critical components~~
-- [x] **Task 10**: ~~Add comprehensive test coverage~~
-- [ ] **Task 11**: Performance optimization and benchmarking
+| Status | Item |
+|--------|------|
+| Done | MVP broker and client |
+| Done | Spring Security and JWT |
+| Done | Split broker server, metrics, and REST API |
+| Done | Metrics API and UI |
+| Done | Admin / teams flows in UI |
+| Done | Landing / SaaS-oriented UI and dark–light themes ([screenshots](#brand-assets-and-ui-themes)) |
+| Done | Retry and broader test coverage |
+| Open | Stronger durability guarantees (reduce message loss scenarios) |
+| Open | Performance tuning and benchmarks |
 
 ---
 
-## Example Usage
+## Example usage
 
-- Firstly You should create tenant
+### Register and create a virtual host
+
+Register (adjust host and payload to your environment):
 
 ```bash
 curl --location 'http://localhost:3333/api/auth/register' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "full_name": "nuri",
+  --header 'Content-Type: application/json' \
+  --data-raw '{
     "username": "nuricanozturk",
-    "email": "canozzturk309@gmail.com",
     "password": "Test123"
-}'
+  }'
 ```
 
-- Then you should create vhost
-
-**Note: you can take invalid token (not implemented yet)**
+Create a virtual host (use a valid `Authorization` bearer token from login):
 
 ```bash
 curl --location --request POST 'http://localhost:3333/api/broker/vhost' \
---header 'X-API-KEY: dmafvEHBVmmesVBudwtzZSbgCIBthBoRMyrARcRvaGFdOyssVqga' \
---header 'Authorization: Bearer token123' \
---data ''
+  --header 'Authorization: Bearer <access_token>' \
+  --header 'Content-Type: application/json'
 ```
 
-**- Response should like below**
+Example response shape:
 
-```
+```json
 {
-    "id": "01K3C3WPE87JQ4XNWHR2YM208E",
-    "name": "nuricanozturk-yaiumxoup",
-    "username": "awrbjvzwc",
-    "password": "RkZMcGhTS2pN", -> BASE64!
-    "domain": "xghqwinaj.localhost:6667",
-    "url": "xghqwinaj.localhost:6667"
+  "id": "01K3C3WPE87JQ4XNWHR2YM208E",
+  "name": "nuricanozturk-yaiumxoup",
+  "username": "awrbjvzwc",
+  "password": "RkZMcGhTS2pN",
+  "domain": "xghqwinaj.localhost",
+  "url": "xghqwinaj.localhost"
 }
 ```
 
-- Then you create producer and consumer apps (or all of them in single app)
-    - application.yml should be below (retry part do not implemented yet)
-  ```yml
-  bearmq:
-    username: awrbjvzwc
-    password: RkZMcGhTS2pN
-    host: localhost
-    port: 6667
-    virtual-host: nuricanozturk-yaiumxoup
-    api-key: dmafvEHBVmmesVBudwtzZSbgCIBthBoRMyrARcRvaGFdOyssVqga
-  ```
-- your Main class should have @EnableBear** annotation
-- You can create Queue and exchange and bind these.
+> `password` may be **Base64-encoded** in the API; decode in your client or copy from the UI.
 
-### Minimal App (Exchange + 2 queue + listener)
+### Spring Boot client (`application.yml`)
 
-**- Main.java**
-
-```java
-
-@SpringBootApplication
-@EnableBear
-public class BearmqConsumerApplication {
-
-  public static void main(String[] args) {
-    SpringApplication.run(BearmqConsumerApplication.class, args);
-  }
-
-}
+```yaml
+bearmq:
+  username: awrbjvzwc
+  password: RkZMcGhTS2pN
+  host: localhost
+  port: 6667
+  virtual-host: nuricanozturk-yaiumxoup
 ```
 
-**- BearConfig.java**
-
-```java
-
-@Bean
-BearExchange exchangeA() {
-  return new BearExchange.Builder()
-          .name("exchangeA")
-          .type(BearExchange.Type.FANOUT)
-          .durable(true)
-          .build();
-}
-
-@Bean
-BearQueue queueX() {
-  return new BearQueue.Builder().name("queueX").durable(true).build();
-}
-
-@Bean
-BearBinding bindA(final BearQueue queueX) {
-  return new BearBinding.Builder()
-          .exchange("exchangeA")
-          .destination(queueX.name())
-          .destinationType(BearBinding.DestinationType.QUEUE)
-          .build();
-}
-
-@Bean
-BearQueue queueY() {
-  return new BearQueue.Builder().name("queueY").durable(true).build();
-}
-
-@Bean
-BearBinding bindB(final BearQueue queueY) {
-  return new BearBinding.Builder()
-          .exchange("exchangeA")
-          .destination(queueY.name())
-          .destinationType(BearBinding.DestinationType.QUEUE)
-          .build();
-}
-```
-
-- **MessageListener.java**
-
-```java
-
-@Service
-public class MessageListener {
-  @BearListener(queues = "queueX")
-  public void listenQueueX(final Student test) {
-    System.out.println("MessageListener-X " + test);
-  }
-
-  @BearListener(queues = "queueY")
-  public void listenQueueY(final Student test) {
-    System.out.println("MessageListener-Y " + test);
-  }
-}
-```
+Enable the client on your application class with `@EnableBear`, declare exchanges/queues/bindings as beans, and use `@BearListener` on consumer methods. See the `demo` module for full examples.
 
 ---
 
-## Demo Architecture
+## Demo architecture
 
-<img src="./media/demo.png" alt="demo architecture">
+<p align="center">
+  <img src="media/demo.png" alt="BearMQ demo architecture diagram" width="85%"/>
+</p>
 
 ---
 
 ## Video
 
-👉 Click image for watching video
+[![BearMQ intro](https://img.youtube.com/vi/KRjMb-gj2uM/0.jpg)](https://www.youtube.com/watch?v=KRjMb-gj2uM)
 
-[![BearMQ Intro](https://img.youtube.com/vi/KRjMb-gj2uM/0.jpg)](https://www.youtube.com/watch?v=KRjMb-gj2uM)
-
----
-
-## 📜 License
-
-BearMQ is protected under the [MIT License](https://choosealicense.com/licenses/mit/). For more details, refer to
-the [LICENSE](https://choosealicense.com/licenses/mit/) file.
+*Click the image to open the video on YouTube.*
 
 ---
 
-## 🙏 Acknowledgments
+## License
 
-Special thanks to all contributors who have helped make BearMQ possible. This project builds upon the excellent work of
-the open-source community, particularly the Spring Framework and Chronicle Queue projects.
+BearMQ is released under the [MIT License](LICENSE).
 
 ---
 
-## ☕ Support My Work
+## Acknowledgments
 
-If you find my projects helpful or want to support my open-source contributions:
+Thanks to contributors and to the **Spring** and **Chronicle** ecosystems that this project builds on.
 
-<a href="https://www.buymeacoffee.com/nuricanozturk" target="_blank">
-  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 200px !important;" >
+---
+
+## Support
+
+If BearMQ is useful in your work, you can support ongoing development:
+
+<a href="https://www.buymeacoffee.com/nuricanozturk" target="_blank" rel="noopener noreferrer">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee" width="200" height="60">
 </a>
