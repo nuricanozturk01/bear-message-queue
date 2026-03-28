@@ -1,8 +1,8 @@
 package com.bearmq.api.tenant;
 
 import com.bearmq.api.auth.dto.RegisterRequest;
-import com.bearmq.api.common.exception.ConflictException;
-import com.bearmq.api.common.exception.UnauthorizedException;
+import com.bearmq.api.common.exceptions.ConflictException;
+import com.bearmq.api.common.exceptions.UnauthorizedException;
 import com.bearmq.api.tenant.converter.TenantConverter;
 import com.bearmq.api.tenant.dto.TenantAuthenticateInfo;
 import com.bearmq.shared.tenant.Tenant;
@@ -10,6 +10,7 @@ import com.bearmq.shared.tenant.TenantRepository;
 import com.bearmq.shared.tenant.TenantRole;
 import com.bearmq.shared.tenant.TenantStatus;
 import com.github.f4b6a3.ulid.UlidCreator;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -25,7 +26,8 @@ public class TenantService {
   private final TenantConverter tenantConverter;
 
   public TenantAuthenticateInfo create(final RegisterRequest request) {
-    final var existing = this.tenantRepository.findByUsername(request.username());
+
+    final Optional<Tenant> existing = this.tenantRepository.findByUsername(request.username());
     if (existing.isPresent()) {
       final Tenant t = existing.get();
       if (!t.isDeleted()) {
@@ -57,6 +59,7 @@ public class TenantService {
   }
 
   public TenantAuthenticateInfo requireAuthenticateByUsername(final String username) {
+
     return this.tenantRepository
         .findByUsername(username)
         .filter(t -> !t.isDeleted())
@@ -65,6 +68,7 @@ public class TenantService {
   }
 
   public TenantAuthenticateInfo getAuthenticateInfoById(final String id) {
+
     return this.tenantRepository
         .findById(id)
         .filter(t -> !t.isDeleted())
@@ -73,6 +77,7 @@ public class TenantService {
   }
 
   private void applyNewPassword(final Tenant tenant, final String rawPassword) {
+
     final String salt = RandomStringUtils.secure().nextAlphanumeric(SALT_LENGTH);
     tenant.setSalt(salt);
     tenant.setPassword(DigestUtils.sha256Hex(salt + rawPassword));

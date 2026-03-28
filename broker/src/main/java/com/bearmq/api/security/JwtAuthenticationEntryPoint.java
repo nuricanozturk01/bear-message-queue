@@ -1,6 +1,7 @@
 package com.bearmq.api.security;
 
-import com.bearmq.api.common.dto.ApiErrorResponse;
+import com.bearmq.api.common.dtos.ApiErrorResponse;
+import com.bearmq.api.common.mapper.ApiErrorResponseMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
   private final ObjectMapper objectMapper;
+  private final ApiErrorResponseMapper apiErrorResponseMapper;
 
   @Override
   public void commence(
@@ -24,17 +26,20 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
       final HttpServletResponse response,
       final AuthenticationException authException)
       throws IOException {
+
     response.setStatus(HttpStatus.UNAUTHORIZED.value());
     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
     response.setCharacterEncoding("UTF-8");
+
     final ApiErrorResponse body =
-        ApiErrorResponse.of(
+        this.apiErrorResponseMapper.simple(
             401,
             "Unauthorized",
             authException.getMessage() != null
                 ? authException.getMessage()
                 : "Authentication required",
             request.getRequestURI());
-    objectMapper.writeValue(response.getOutputStream(), body);
+
+    this.objectMapper.writeValue(response.getOutputStream(), body);
   }
 }

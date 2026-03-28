@@ -53,6 +53,7 @@ public class BrokerApplication implements ApplicationRunner {
   private boolean isMetricEnabled;
 
   public static void main(final String[] args) throws Exception {
+
     if (!isChronicleCompatible()) {
       relaunchWithRequiredFlags(args);
       return;
@@ -61,6 +62,7 @@ public class BrokerApplication implements ApplicationRunner {
   }
 
   private static boolean isChronicleCompatible() {
+
     try {
       final Module javaLangReflect = Class.forName("java.lang.reflect.Method").getModule();
       final Module unnamed = BrokerApplication.class.getClassLoader().getUnnamedModule();
@@ -71,6 +73,7 @@ public class BrokerApplication implements ApplicationRunner {
   }
 
   private static void relaunchWithRequiredFlags(final String[] args) throws Exception {
+
     log.info(
         "Chronicle Queue requires --add-opens flags. "
             + "Relaunching JVM with the required arguments...");
@@ -100,6 +103,7 @@ public class BrokerApplication implements ApplicationRunner {
   }
 
   private static String resolveJavaExecutable() {
+
     final String javaHome = System.getProperty("java.home");
     if (javaHome != null) {
       final File candidate = new File(javaHome, "bin/java");
@@ -112,6 +116,7 @@ public class BrokerApplication implements ApplicationRunner {
 
   @Override
   public void run(final ApplicationArguments args) {
+
     final Thread brokerThread = new Thread(this.brokerServer::run, Constant.BROKER_THREAD_NAME);
     brokerThread.setDaemon(false);
     brokerThread.start();

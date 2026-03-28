@@ -1,3 +1,7 @@
+# JAR-only image (no UI). For the full stack (Angular + API + H2) build from the repository root:
+#   docker build -t bearmq .
+# See /Dockerfile in the parent directory.
+
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
 

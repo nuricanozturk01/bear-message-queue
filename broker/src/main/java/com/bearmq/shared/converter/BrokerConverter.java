@@ -1,9 +1,10 @@
 package com.bearmq.shared.converter;
 
-import com.bearmq.api.broker.dto.BindRequest;
-import com.bearmq.api.broker.dto.ExchangeRequest;
-import com.bearmq.api.broker.dto.QueueRequest;
 import com.bearmq.shared.binding.Binding;
+import com.bearmq.shared.broker.Status;
+import com.bearmq.shared.broker.dto.BindRequest;
+import com.bearmq.shared.broker.dto.ExchangeRequest;
+import com.bearmq.shared.broker.dto.QueueRequest;
 import com.bearmq.shared.exchange.Exchange;
 import com.bearmq.shared.queue.Queue;
 import com.bearmq.shared.vhost.VirtualHost;
@@ -12,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.Named;
 
 @Mapper(componentModel = "spring")
 public abstract class BrokerConverter {
@@ -25,19 +27,13 @@ public abstract class BrokerConverter {
   @Mapping(ignore = true, target = "arguments")
   public abstract Exchange toExchange(ExchangeRequest exchangeRequest);
 
-  public VirtualHostInfo convert(final VirtualHost vhost) {
-    return new VirtualHostInfo(
-        vhost.getId(),
-        vhost.getName(),
-        vhost.getUsername(),
-        decodeBase64(vhost.getPassword()),
-        vhost.getDomain(),
-        vhost.getUrl(),
-        vhost.getCreatedAt(),
-        vhost.getStatus() != null ? vhost.getStatus().name() : "");
-  }
+  @Mapping(target = "password", source = "password", qualifiedByName = "decodePassword")
+  @Mapping(target = "status", source = "status", qualifiedByName = "statusToString")
+  public abstract VirtualHostInfo toVirtualHostInfo(VirtualHost vhost);
 
-  private static String decodeBase64(final String encoded) {
+  @Named("decodePassword")
+  protected String decodePassword(final String encoded) {
+
     if (encoded == null || encoded.isBlank()) {
       return encoded;
     }
@@ -46,5 +42,11 @@ public abstract class BrokerConverter {
     } catch (final IllegalArgumentException e) {
       return encoded;
     }
+  }
+
+  @Named("statusToString")
+  protected String statusToString(final Status status) {
+
+    return status == null ? "" : status.name();
   }
 }

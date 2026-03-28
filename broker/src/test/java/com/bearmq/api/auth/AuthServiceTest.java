@@ -8,7 +8,9 @@ import static org.mockito.Mockito.when;
 import com.bearmq.api.auth.dto.AuthRequest;
 import com.bearmq.api.auth.dto.AuthResponse;
 import com.bearmq.api.auth.dto.RegisterRequest;
-import com.bearmq.api.common.exception.UnauthorizedException;
+import com.bearmq.api.auth.mapper.AuthResponseMapper;
+import com.bearmq.api.auth.services.AuthService;
+import com.bearmq.api.common.exceptions.UnauthorizedException;
 import com.bearmq.api.security.JwtTokenService;
 import com.bearmq.api.tenant.TenantService;
 import com.bearmq.api.tenant.dto.TenantAuthenticateInfo;
@@ -16,9 +18,10 @@ import com.bearmq.shared.settings.MessagingApiKeyService;
 import com.bearmq.shared.tenant.TenantRole;
 import com.bearmq.shared.tenant.TenantStatus;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+import org.mapstruct.factory.Mappers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -31,9 +34,22 @@ class AuthServiceTest {
 
   @Mock private MessagingApiKeyService messagingApiKeyService;
 
-  @InjectMocks private AuthService authService;
+  private AuthResponseMapper authResponseMapper;
+  private AuthService authService;
+
+  @BeforeEach
+  void setUp() {
+    this.authResponseMapper = Mappers.getMapper(AuthResponseMapper.class);
+    this.authService =
+        new AuthService(
+            this.tenantService,
+            this.jwtTokenService,
+            this.messagingApiKeyService,
+            this.authResponseMapper);
+  }
 
   private static TenantAuthenticateInfo activeUser() {
+
     final String salt = "testsalt1234abcd";
     final String password = DigestUtils.sha256Hex(salt + "correctpassword");
     return new TenantAuthenticateInfo(

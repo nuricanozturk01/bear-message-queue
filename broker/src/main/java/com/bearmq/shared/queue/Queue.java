@@ -93,6 +93,7 @@ public final class Queue {
 
   @Override
   public boolean equals(final Object o) {
+
     if (!(o instanceof Queue queue)) {
       return false;
     }
@@ -102,6 +103,7 @@ public final class Queue {
 
   @Override
   public int hashCode() {
+
     return Objects.hash(id, actualName);
   }
 }

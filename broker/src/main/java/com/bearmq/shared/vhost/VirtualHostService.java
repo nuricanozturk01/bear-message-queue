@@ -50,6 +50,7 @@ public class VirtualHostService {
 
   @Transactional
   public VirtualHostInfo create(final TenantInfo tenantInfo) {
+
     final Tenant tenant =
         this.tenantRepository
             .findByUsername(tenantInfo.username())
@@ -57,7 +58,7 @@ public class VirtualHostService {
 
     final int randomDigit = this.random.nextInt(MIN_DIGITS, MAX_DIGITS);
 
-    final var vhostDomain =
+    final String vhostDomain =
         String.format(
             "%s.%s", secure().next(randomDigit, true, false).toLowerCase(ROOT), this.domain);
 
@@ -72,7 +73,7 @@ public class VirtualHostService {
             "%s-%s",
             tenantInfo.username(), secure().next(randomDigit, true, false).toLowerCase(ROOT));
 
-    final var vhostObj = new VirtualHost();
+    final VirtualHost vhostObj = new VirtualHost();
 
     vhostObj.setName(name);
     vhostObj.setUsername(username);
@@ -92,11 +93,12 @@ public class VirtualHostService {
         vhostObj.getName(),
         tenantInfo.id());
 
-    return this.converter.convert(vhostObj);
+    return this.converter.toVirtualHostInfo(vhostObj);
   }
 
   @Transactional
   public VirtualHostInfo updateStatus(final String vhostId, final Status newStatus) {
+
     final VirtualHost vhost =
         this.repository
             .findById(vhostId)
@@ -113,11 +115,12 @@ public class VirtualHostService {
       log.info(
           "AUDIT vhost_deleted tenantId={} virtualHostId={}", vhost.getTenant().getId(), vhostId);
     }
-    return this.converter.convert(vhost);
+    return this.converter.toVirtualHostInfo(vhost);
   }
 
   @Transactional(readOnly = true)
   public VirtualHost requireEntityById(final String vhostId) {
+
     return this.repository
         .findById(vhostId)
         .filter(v -> !v.isDeleted())
@@ -126,6 +129,7 @@ public class VirtualHostService {
 
   @Transactional(readOnly = true)
   public Page<VirtualHostInfo> findAllActive(final @NotNull Pageable pageable) {
+
     final Pageable effective =
         pageable.getSort().isSorted()
             ? pageable
@@ -135,12 +139,14 @@ public class VirtualHostService {
                 Sort.by("createdAt").descending());
 
     final Page<VirtualHost> raw = this.repository.findAllByDeletedFalse(effective);
-    final var vhosts = raw.stream().map(this.converter::convert).toList();
+    final List<VirtualHostInfo> vhosts =
+        raw.stream().map(this.converter::toVirtualHostInfo).toList();
     return new PageImpl<>(vhosts, effective, raw.getTotalElements());
   }
 
   @Transactional(readOnly = true)
   public VirtualHost findByVhostName(final String vhostName) {
+
     return this.repository
         .findByNameAndDeletedFalse(vhostName)
         .orElseThrow(() -> new RuntimeException("vhost is not found!"));
@@ -156,11 +162,13 @@ public class VirtualHostService {
 
   @Transactional(readOnly = true)
   public List<VirtualHost> findAll() {
+
     return this.repository.findAll();
   }
 
   @Transactional
   public void markDeleted(final VirtualHost vhost) {
+
     if (vhost.isDeleted()) {
       return;
     }

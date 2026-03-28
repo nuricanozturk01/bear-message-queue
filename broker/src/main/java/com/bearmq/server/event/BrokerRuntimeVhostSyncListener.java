@@ -18,12 +18,14 @@ public class BrokerRuntimeVhostSyncListener {
 
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void onVirtualHostDeleted(final VirtualHostDeletedEvent event) {
+
     log.debug("Unloading runtime broker state for vhostId={}", event.virtualHostId());
     this.brokerServerFacade.unloadVhost(event.virtualHostId());
   }
 
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void onVirtualHostActivated(final VirtualHostActivatedEvent event) {
+
     log.debug("Loading runtime broker state for vhostId={}", event.virtualHostId());
     this.brokerServerFacade.loadVhostRuntime(event.virtualHostId());
   }

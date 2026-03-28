@@ -11,10 +11,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.bearmq.api.auth.TenantContext;
-import com.bearmq.api.broker.dto.read.QueueSummaryDto;
-import com.bearmq.api.facade.BrokerApiFacade;
-import com.bearmq.api.facade.BrokerReadFacade;
+import com.bearmq.api.auth.services.TenantContext;
+import com.bearmq.api.broker.controllers.BearBrokerController;
+import com.bearmq.api.broker.dtos.read.QueueSummaryDto;
+import com.bearmq.api.common.mapper.ApiErrorResponseMapperImpl;
+import com.bearmq.api.facades.BrokerApiFacade;
+import com.bearmq.api.facades.BrokerReadFacade;
 import com.bearmq.api.security.JwtAuthenticationEntryPoint;
 import com.bearmq.api.security.TenantAuthenticationFilter;
 import com.bearmq.server.broker.runner.BrokerServer;
@@ -37,7 +39,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(BearBrokerController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({JwtAuthenticationEntryPoint.class})
+@Import({JwtAuthenticationEntryPoint.class, ApiErrorResponseMapperImpl.class})
 class BearBrokerControllerTest {
 
   @Autowired private MockMvc mockMvc;

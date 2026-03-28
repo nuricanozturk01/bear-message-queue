@@ -12,12 +12,15 @@ public record TenantPrincipal(TenantInfo tenantInfo) implements Principal {
 
   @Override
   public String getName() {
+
     return this.tenantInfo.username();
   }
 
   public Collection<GrantedAuthority> authorities() {
+
     final String roleName =
         this.tenantInfo.role() != null ? this.tenantInfo.role().name() : TenantRole.USER.name();
+
     return List.of(new SimpleGrantedAuthority("ROLE_" + roleName));
   }
 }

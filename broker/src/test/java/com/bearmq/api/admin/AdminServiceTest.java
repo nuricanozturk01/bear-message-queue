@@ -7,9 +7,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.bearmq.api.admin.dto.CreateUserRequest;
-import com.bearmq.api.common.exception.ConflictException;
-import com.bearmq.api.common.exception.ForbiddenException;
+import com.bearmq.api.admin.dtos.CreateUserRequest;
+import com.bearmq.api.admin.dtos.UserDto;
+import com.bearmq.api.admin.mapper.AdminTenantMapper;
+import com.bearmq.api.admin.services.AdminService;
+import com.bearmq.api.common.exceptions.ConflictException;
+import com.bearmq.api.common.exceptions.ForbiddenException;
 import com.bearmq.shared.tenant.Tenant;
 import com.bearmq.shared.tenant.TenantRepository;
 import com.bearmq.shared.tenant.TenantRole;
@@ -27,6 +30,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class AdminServiceTest {
 
   @Mock private TenantRepository tenantRepository;
+  @Mock private AdminTenantMapper adminTenantMapper;
 
   @InjectMocks private AdminService adminService;
 
@@ -55,8 +59,15 @@ class AdminServiceTest {
 
     when(this.tenantRepository.findByUsername("alice")).thenReturn(Optional.of(deleted));
     when(this.tenantRepository.save(any(Tenant.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(this.adminTenantMapper.toUserDto(any(Tenant.class)))
+        .thenAnswer(
+            inv -> {
+              final Tenant t = inv.getArgument(0);
+              return new UserDto(
+                  t.getId(), t.getUsername(), t.getRole(), t.getStatus(), t.getCreatedAt());
+            });
 
-    final var dto =
+    final UserDto dto =
         this.adminService.createUser(
             new CreateUserRequest("alice", "newsecret12", TenantRole.ADMIN));
 

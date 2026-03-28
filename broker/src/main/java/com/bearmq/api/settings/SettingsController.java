@@ -1,6 +1,6 @@
 package com.bearmq.api.settings;
 
-import com.bearmq.api.auth.TenantContext;
+import com.bearmq.api.auth.services.TenantContext;
 import com.bearmq.shared.settings.MessagingApiKeyService;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +19,7 @@ public class SettingsController {
 
   @GetMapping("/messaging-api-key")
   public ResponseEntity<Map<String, String>> getMessagingApiKey() {
+
     this.tenantContext.requireTenant();
     return ResponseEntity.ok(Map.of("api_key", this.messagingApiKeyService.getMessagingApiKey()));
   }

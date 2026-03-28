@@ -26,11 +26,13 @@ public class BrokerServerConfig {
   @Scope("prototype")
   @Primary
   public ExecutorService provideCachedThreadPool() {
+
     return Executors.newCachedThreadPool();
   }
 
   @Bean("thread.virtual")
   public ExecutorService provideVirtualThreadExecutor() {
+
     return Executors.newVirtualThreadPerTaskExecutor();
   }
 }

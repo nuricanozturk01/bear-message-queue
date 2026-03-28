@@ -1,1 +1,0 @@
-ALTER TABLE tenant DROP COLUMN IF EXISTS email;

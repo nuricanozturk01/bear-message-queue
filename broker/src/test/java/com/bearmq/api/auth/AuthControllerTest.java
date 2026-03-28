@@ -6,8 +6,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.bearmq.api.auth.controllers.AuthController;
 import com.bearmq.api.auth.dto.AuthResponse;
-import com.bearmq.api.common.exception.UnauthorizedException;
+import com.bearmq.api.auth.services.AuthService;
+import com.bearmq.api.common.exceptions.UnauthorizedException;
+import com.bearmq.api.common.mapper.ApiErrorResponseMapperImpl;
 import com.bearmq.api.security.JwtAuthenticationEntryPoint;
 import com.bearmq.api.security.TenantAuthenticationFilter;
 import com.bearmq.server.broker.runner.BrokerServer;
@@ -23,7 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({JwtAuthenticationEntryPoint.class})
+@Import({JwtAuthenticationEntryPoint.class, ApiErrorResponseMapperImpl.class})
 class AuthControllerTest {
 
   @Autowired private MockMvc mockMvc;

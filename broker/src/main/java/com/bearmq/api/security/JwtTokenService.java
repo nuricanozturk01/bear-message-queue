@@ -1,5 +1,6 @@
 package com.bearmq.api.security;
 
+import com.bearmq.api.security.mapper.AccessTokenTenantInfoMapper;
 import com.bearmq.api.tenant.dto.TenantAuthenticateInfo;
 import com.bearmq.shared.tenant.TenantRole;
 import com.bearmq.shared.tenant.TenantStatus;
@@ -29,16 +30,23 @@ public class JwtTokenService {
   private final SecretKey secretKey;
   private final Duration accessTtl;
   private final Duration refreshTtl;
+  private final AccessTokenTenantInfoMapper accessTokenTenantInfoMapper;
 
-  public JwtTokenService(final JwtProperties props) {
+  public JwtTokenService(
+      final JwtProperties props, final AccessTokenTenantInfoMapper accessTokenTenantInfoMapper) {
+
     final byte[] keyBytes = props.secret().getBytes(StandardCharsets.UTF_8);
+
     this.secretKey = Keys.hmacShaKeyFor(keyBytes);
     this.accessTtl = Duration.ofMinutes(props.accessTokenExpirationMinutes());
     this.refreshTtl = Duration.ofDays(props.refreshTokenExpirationDays());
+    this.accessTokenTenantInfoMapper = accessTokenTenantInfoMapper;
   }
 
   public String createAccessToken(final TenantAuthenticateInfo tenant) {
+
     final Instant now = Instant.now();
+
     return Jwts.builder()
         .subject(tenant.id())
         .claim(CLAIM_TYPE, TYPE_ACCESS)
@@ -52,7 +60,9 @@ public class JwtTokenService {
   }
 
   public String createRefreshToken(final String tenantId) {
+
     final Instant now = Instant.now();
+
     return Jwts.builder()
         .subject(tenantId)
         .claim(CLAIM_TYPE, TYPE_REFRESH)
@@ -63,25 +73,32 @@ public class JwtTokenService {
   }
 
   public TenantInfo parseAccessToken(final String token) {
+
     final Claims claims = this.parseClaims(token);
     assertTokenType(claims, TYPE_ACCESS);
-    return toTenantInfo(claims);
+
+    return this.toTenantInfo(claims);
   }
 
   public String parseRefreshToken(final String token) {
+
     final Claims claims = this.parseClaims(token);
+
     assertTokenType(claims, TYPE_REFRESH);
     return claims.getSubject();
   }
 
   public boolean isLikelyJwt(final String token) {
+
     if (token == null || token.isBlank()) {
       return false;
     }
+
     return token.chars().filter(ch -> ch == '.').count() == 2;
   }
 
   private Claims parseClaims(final String token) {
+
     try {
       return Jwts.parser().verifyWith(this.secretKey).build().parseSignedClaims(token).getPayload();
     } catch (final ExpiredJwtException ex) {
@@ -90,16 +107,20 @@ public class JwtTokenService {
   }
 
   private static void assertTokenType(final Claims claims, final String expected) {
+
     final Object typ = claims.get(CLAIM_TYPE);
+
     if (typ == null || !expected.equals(typ.toString())) {
       throw new JwtException("Invalid token type");
     }
   }
 
-  private static TenantInfo toTenantInfo(final Claims claims) {
+  private TenantInfo toTenantInfo(final Claims claims) {
+
     final String roleClaim = claims.get(CLAIM_ROLE, String.class);
     final TenantRole role = roleClaim != null ? TenantRole.valueOf(roleClaim) : TenantRole.USER;
-    return new TenantInfo(
+
+    return this.accessTokenTenantInfoMapper.toTenantInfo(
         claims.getSubject(),
         claims.get(CLAIM_USERNAME, String.class),
         TenantStatus.valueOf(claims.get(CLAIM_STATUS, String.class)),

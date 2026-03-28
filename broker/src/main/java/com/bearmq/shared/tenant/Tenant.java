@@ -63,6 +63,7 @@ public class Tenant {
 
   @Override
   public boolean equals(final Object o) {
+
     if (!(o instanceof final Tenant tenant)) {
       return false;
     }
@@ -71,6 +72,7 @@ public class Tenant {
 
   @Override
   public int hashCode() {
+
     return Objects.hash(this.id, this.username);
   }
 }

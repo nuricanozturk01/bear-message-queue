@@ -42,11 +42,13 @@ public class MetricServer implements Closeable {
 
   @Override
   public void close() throws IOException {
+
     this.scheduledPool.shutdown();
     this.datagramSocket.close();
   }
 
   public void run() {
+
     log.info(
         "MetricServer UDP broadcaster started — sending to {}:{} every {}s",
         this.destinationHost,
@@ -58,6 +60,7 @@ public class MetricServer implements Closeable {
   }
 
   private void broadcastMetrics() {
+
     try {
       final String json = ThreadMetrics.snapshot();
       final byte[] data = json.getBytes(StandardCharsets.UTF_8);

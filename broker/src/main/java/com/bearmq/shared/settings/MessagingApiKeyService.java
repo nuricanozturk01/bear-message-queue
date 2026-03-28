@@ -15,6 +15,7 @@ public class MessagingApiKeyService {
 
   @Transactional(readOnly = true)
   public String getMessagingApiKey() {
+
     return this.applicationSettingsRepository
         .findById(ApplicationSettings.SINGLETON_ID)
         .map(ApplicationSettings::getMessagingApiKey)
@@ -23,6 +24,7 @@ public class MessagingApiKeyService {
 
   @Transactional(readOnly = true)
   public boolean matchesMessagingApiKey(final String candidate) {
+
     if (candidate == null || candidate.isBlank()) {
       return false;
     }
@@ -35,6 +37,7 @@ public class MessagingApiKeyService {
 
   @Transactional
   public String rotateMessagingApiKey() {
+
     final ApplicationSettings row =
         this.applicationSettingsRepository
             .findById(ApplicationSettings.SINGLETON_ID)
@@ -51,6 +54,7 @@ public class MessagingApiKeyService {
   }
 
   private String generateKey() {
+
     return String.format(
         "bearmqt-%s", RandomStringUtils.secure().next(API_KEY_RANDOM_LEN, true, false));
   }

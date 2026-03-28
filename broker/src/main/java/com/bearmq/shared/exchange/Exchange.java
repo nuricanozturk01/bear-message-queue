@@ -93,6 +93,7 @@ public final class Exchange {
 
   @Override
   public boolean equals(final Object o) {
+
     if (!(o instanceof Exchange e)) {
       return false;
     }
@@ -102,6 +103,7 @@ public final class Exchange {
 
   @Override
   public int hashCode() {
+
     return Objects.hash(id, actualName);
   }
 }

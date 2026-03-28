@@ -95,6 +95,7 @@ public class VirtualHost {
 
   @Override
   public boolean equals(final Object o) {
+
     if (!(o instanceof VirtualHost that)) {
       return false;
     }
@@ -104,6 +105,7 @@ public class VirtualHost {
 
   @Override
   public int hashCode() {
+
     return Objects.hash(this.id, this.name);
   }
 }

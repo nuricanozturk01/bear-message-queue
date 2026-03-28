@@ -1,7 +1,7 @@
 package com.bearmq.shared.binding;
 
-import com.bearmq.api.broker.dto.BindRequest;
 import com.bearmq.shared.broker.Status;
+import com.bearmq.shared.broker.dto.BindRequest;
 import com.bearmq.shared.converter.BrokerConverter;
 import com.bearmq.shared.exchange.Exchange;
 import com.bearmq.shared.queue.Queue;
@@ -84,11 +84,13 @@ public class BindingService {
   }
 
   public List<Binding> findAllByVhostId(final String vhostId) {
+
     return this.bindingRepository.findAllByVhostId(vhostId);
   }
 
   @Transactional
   public void softDeleteById(final String vhostId, final String bindingId) {
+
     final Binding b =
         this.bindingRepository
             .findById(bindingId)
@@ -142,6 +144,7 @@ public class BindingService {
   }
 
   private static String existingKey(final Binding b) {
+
     final String destId =
         b.getDestinationType() == DestinationType.QUEUE
             ? b.getDestinationQueueId()

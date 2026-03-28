@@ -28,6 +28,7 @@ public final class ThreadMetrics {
   private ThreadMetrics() {}
 
   public static String snapshot() {
+
     final MemoryUsage heap = MEMORY_MX_BEAN.getHeapMemoryUsage();
     final MemoryUsage nonHeap = MEMORY_MX_BEAN.getNonHeapMemoryUsage();
 
@@ -58,6 +59,7 @@ public final class ThreadMetrics {
   }
 
   public static long cpuTimeMs(final Thread thread) {
+
     final long ns = THREAD_MX_BEAN.getThreadCpuTime(thread.threadId());
     return ns < 0 ? -1 : ns / NS_PER_MS;
   }

@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 public class AppConfig {
   @Bean
   public Random getRandom() {
+
     return new SecureRandom();
   }
 }

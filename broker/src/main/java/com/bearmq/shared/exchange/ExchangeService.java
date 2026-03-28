@@ -3,8 +3,8 @@ package com.bearmq.shared.exchange;
 import static java.util.Locale.ROOT;
 import static org.apache.commons.lang3.RandomStringUtils.secure;
 
-import com.bearmq.api.broker.dto.ExchangeRequest;
 import com.bearmq.shared.broker.Status;
+import com.bearmq.shared.broker.dto.ExchangeRequest;
 import com.bearmq.shared.converter.BrokerConverter;
 import com.bearmq.shared.vhost.VirtualHost;
 import com.github.f4b6a3.ulid.UlidCreator;
@@ -28,14 +28,16 @@ public class ExchangeService {
   private final Random random;
 
   public List<Exchange> createAll(final VirtualHost vhost, final List<ExchangeRequest> exchanges) {
-    final var exchangeObjects = exchanges.stream().map(this.brokerConverter::toExchange).toList();
+
+    final List<Exchange> exchangeObjects =
+        exchanges.stream().map(this.brokerConverter::toExchange).toList();
 
     final Set<String> existingNames =
         this.exchangeRepository.findAllByVhostId(vhost.getId()).stream()
             .map(Exchange::getName)
             .collect(Collectors.toSet());
 
-    for (final var exchange : exchangeObjects) {
+    for (final Exchange exchange : exchangeObjects) {
       if (existingNames.contains(exchange.getName())) {
         continue;
       }
@@ -57,11 +59,13 @@ public class ExchangeService {
   }
 
   public List<Exchange> findAllByVhostId(final String id) {
+
     return this.exchangeRepository.findListByVhostId(id);
   }
 
   @Transactional
   public void softDeleteById(final String vhostId, final String exchangeId) {
+
     final Exchange e =
         this.exchangeRepository
             .findById(exchangeId)

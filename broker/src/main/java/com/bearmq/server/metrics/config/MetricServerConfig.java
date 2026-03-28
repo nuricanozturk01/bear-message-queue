@@ -16,6 +16,7 @@ public class MetricServerConfig {
   @Bean
   @ConditionalOnProperty(value = "bearmq.server.metrics.enabled", havingValue = "true")
   public ScheduledExecutorService provideMetricsScheduledThreadPool() {
+
     return Executors.newScheduledThreadPool(METRIC_THREAD_POOL_SIZE);
   }
 

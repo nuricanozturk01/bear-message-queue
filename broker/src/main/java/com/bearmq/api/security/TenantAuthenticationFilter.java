@@ -1,6 +1,8 @@
 package com.bearmq.api.security;
 
-import com.bearmq.api.common.dto.ApiErrorResponse;
+import com.bearmq.api.common.dtos.ApiErrorResponse;
+import com.bearmq.api.common.mapper.ApiErrorResponseMapper;
+import com.bearmq.api.security.mapper.AccessTokenTenantInfoMapper;
 import com.bearmq.shared.settings.MessagingApiKeyService;
 import com.bearmq.shared.tenant.TenantRole;
 import com.bearmq.shared.tenant.TenantStatus;
@@ -12,7 +14,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -25,21 +26,35 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
-@RequiredArgsConstructor
 public class TenantAuthenticationFilter extends OncePerRequestFilter {
 
   private static final String API_KEY_HEADER = "X-API-KEY";
 
-  private static final TenantInfo MESSAGING_API_TENANT =
-      new TenantInfo(
-          MessagingApiPrincipalIds.TENANT_ID, "api-client", TenantStatus.ACTIVE, TenantRole.USER);
-
   private final JwtTokenService jwtTokenService;
   private final MessagingApiKeyService messagingApiKeyService;
   private final ObjectMapper objectMapper;
+  private final ApiErrorResponseMapper apiErrorResponseMapper;
+  private final TenantInfo messagingApiTenant;
+
+  public TenantAuthenticationFilter(
+      final JwtTokenService jwtTokenService,
+      final MessagingApiKeyService messagingApiKeyService,
+      final ObjectMapper objectMapper,
+      final ApiErrorResponseMapper apiErrorResponseMapper,
+      final AccessTokenTenantInfoMapper accessTokenTenantInfoMapper) {
+
+    this.jwtTokenService = jwtTokenService;
+    this.messagingApiKeyService = messagingApiKeyService;
+    this.objectMapper = objectMapper;
+    this.apiErrorResponseMapper = apiErrorResponseMapper;
+    this.messagingApiTenant =
+        accessTokenTenantInfoMapper.toTenantInfo(
+            MessagingApiPrincipalIds.TENANT_ID, "api-client", TenantStatus.ACTIVE, TenantRole.USER);
+  }
 
   @Override
   protected boolean shouldNotFilter(final HttpServletRequest request) {
+
     final String path = request.getServletPath();
     return path.startsWith("/api/auth/login") || path.startsWith("/api/auth/refresh");
   }
@@ -50,6 +65,7 @@ public class TenantAuthenticationFilter extends OncePerRequestFilter {
       final @NonNull HttpServletResponse response,
       final @NonNull FilterChain filterChain)
       throws ServletException, IOException {
+
     final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
     final String apiKeyHeader = request.getHeader(API_KEY_HEADER);
 
@@ -59,7 +75,7 @@ public class TenantAuthenticationFilter extends OncePerRequestFilter {
       }
     } else if (StringUtils.hasText(apiKeyHeader)) {
       if (this.messagingApiKeyService.matchesMessagingApiKey(apiKeyHeader)) {
-        this.authenticate(request, MESSAGING_API_TENANT);
+        this.authenticate(request, this.messagingApiTenant);
       } else {
         this.writeError(response, request, HttpStatus.UNAUTHORIZED, "Invalid API key");
         return;
@@ -70,6 +86,7 @@ public class TenantAuthenticationFilter extends OncePerRequestFilter {
   }
 
   private static boolean hasBearer(final String authHeader) {
+
     return StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ");
   }
 
@@ -79,18 +96,23 @@ public class TenantAuthenticationFilter extends OncePerRequestFilter {
       final String authHeader,
       final String apiKeyHeader)
       throws IOException {
+
     final String token = authHeader.substring("Bearer ".length());
+
     if (!this.jwtTokenService.isLikelyJwt(token)) {
       this.writeError(response, request, HttpStatus.UNAUTHORIZED, "Invalid bearer token");
       return false;
     }
+
     try {
       final TenantInfo info = this.jwtTokenService.parseAccessToken(token);
+
       if (!this.verifyApiKeyIfPresent(apiKeyHeader)) {
         this.writeError(
             response, request, HttpStatus.FORBIDDEN, "API key does not match configured key");
         return false;
       }
+
       this.authenticate(request, info);
     } catch (final JwtException ex) {
       this.writeError(response, request, HttpStatus.UNAUTHORIZED, "Invalid or expired token");
@@ -100,16 +122,20 @@ public class TenantAuthenticationFilter extends OncePerRequestFilter {
   }
 
   private boolean verifyApiKeyIfPresent(final String apiKeyHeader) {
+
     if (!StringUtils.hasText(apiKeyHeader)) {
       return true;
     }
+
     return this.messagingApiKeyService.matchesMessagingApiKey(apiKeyHeader);
   }
 
   private void authenticate(final HttpServletRequest request, final TenantInfo tenant) {
+
     final TenantPrincipal principal = new TenantPrincipal(tenant);
     final UsernamePasswordAuthenticationToken authentication =
         new UsernamePasswordAuthenticationToken(principal, null, principal.authorities());
+
     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
     SecurityContextHolder.getContext().setAuthentication(authentication);
   }
@@ -120,12 +146,15 @@ public class TenantAuthenticationFilter extends OncePerRequestFilter {
       final HttpStatus status,
       final String message)
       throws IOException {
+
     response.setStatus(status.value());
     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
     response.setCharacterEncoding("UTF-8");
+
     final ApiErrorResponse body =
-        ApiErrorResponse.of(
+        this.apiErrorResponseMapper.simple(
             status.value(), status.getReasonPhrase(), message, request.getRequestURI());
+
     this.objectMapper.writeValue(response.getOutputStream(), body);
   }
 }

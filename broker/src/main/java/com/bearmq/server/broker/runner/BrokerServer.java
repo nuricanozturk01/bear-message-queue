@@ -33,13 +33,14 @@ public class BrokerServer implements Closeable {
   private final BrokerServerFacade brokerFacade;
 
   public void run() {
+
     try {
       this.loadCurrentQueues();
 
       log.warn("Broker server started on port " + this.serverSocket.getLocalPort());
 
       while (true) {
-        final var socket = this.serverSocket.accept();
+        final Socket socket = this.serverSocket.accept();
         this.executorService.execute(() -> this.handleClient(socket));
       }
     } catch (final IOException e) {
@@ -49,6 +50,7 @@ public class BrokerServer implements Closeable {
   }
 
   private void handleClient(final Socket socket) {
+
     try (final DataInputStream dataInputStream = new DataInputStream(socket.getInputStream())) {
       final int messageLength = dataInputStream.readInt();
 
@@ -56,7 +58,7 @@ public class BrokerServer implements Closeable {
         log.error("Invalid message length: " + messageLength);
       }
 
-      final var bytes = new byte[messageLength];
+      final byte[] bytes = new byte[messageLength];
 
       int offset = 0;
       int expectedIdx = 1;
@@ -91,6 +93,7 @@ public class BrokerServer implements Closeable {
   }
 
   private void response(final byte[] body, final DataInputStream dis, final Socket socket) {
+
     try (final DataOutputStream dos = new DataOutputStream(socket.getOutputStream())) {
       dos.writeInt(body.length);
 
@@ -112,11 +115,13 @@ public class BrokerServer implements Closeable {
   }
 
   public void loadCurrentQueues() {
+
     this.brokerFacade.loadQueues();
   }
 
   @Override
   public void close() throws IOException {
+
     this.executorService.shutdown();
     this.serverSocket.close();
   }

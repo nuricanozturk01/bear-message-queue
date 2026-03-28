@@ -3,9 +3,8 @@ package com.bearmq.server.broker;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.bearmq.api.auth.dto.RegisterRequest;
-import com.bearmq.api.broker.dto.BrokerRequest;
-import com.bearmq.api.broker.dto.QueueRequest;
-import com.bearmq.api.facade.BrokerApiFacade;
+import com.bearmq.api.broker.dtos.BrokerRequest;
+import com.bearmq.api.facades.BrokerApiFacade;
 import com.bearmq.api.tenant.TenantService;
 import com.bearmq.api.tenant.converter.TenantConverter;
 import com.bearmq.api.tenant.dto.TenantAuthenticateInfo;
@@ -13,10 +12,12 @@ import com.bearmq.server.broker.dto.Auth;
 import com.bearmq.server.broker.dto.BearOperation;
 import com.bearmq.server.broker.dto.Message;
 import com.bearmq.server.broker.facade.BrokerServerFacade;
+import com.bearmq.shared.broker.dto.QueueRequest;
 import com.bearmq.shared.settings.MessagingApiKeyService;
 import com.bearmq.shared.tenant.Tenant;
 import com.bearmq.shared.tenant.TenantRepository;
 import com.bearmq.shared.tenant.dto.TenantInfo;
+import com.bearmq.shared.vhost.dto.VirtualHostInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -98,7 +99,7 @@ class QueueTcpSmokeTest {
         this.tenantService.create(new RegisterRequest(username, "secret12"));
     final Tenant tenant = this.tenantRepository.findById(created.id()).orElseThrow();
     this.tenantInfo = this.tenantConverter.toTenantInfo(tenant);
-    final var vhost = this.brokerApiFacade.createVirtualHost(this.tenantInfo);
+    final VirtualHostInfo vhost = this.brokerApiFacade.createVirtualHost(this.tenantInfo);
     this.vhostId = vhost.id();
     this.vhostName = vhost.name();
     this.vhostUsername = vhost.username();
@@ -156,6 +157,7 @@ class QueueTcpSmokeTest {
   }
 
   private void tcpEnqueue(final byte[] body) throws IOException {
+
     final Message msg =
         Message.builder()
             .operation(BearOperation.ENQUEUE)
@@ -169,6 +171,7 @@ class QueueTcpSmokeTest {
   }
 
   private Optional<byte[]> tcpDequeue() throws IOException {
+
     final Message msg =
         Message.builder()
             .operation(BearOperation.DEQUEUE)
@@ -182,6 +185,7 @@ class QueueTcpSmokeTest {
   }
 
   private Auth auth() {
+
     return Auth.builder()
         .vhost(b64(this.vhostName))
         .username(b64(this.vhostUsername))
@@ -191,10 +195,12 @@ class QueueTcpSmokeTest {
   }
 
   private static String b64(final String raw) {
+
     return Base64.getEncoder().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
   }
 
   private void writeFrame(final Socket socket, final Message message) throws IOException {
+
     final byte[] bytes = this.objectMapper.writeValueAsBytes(message);
     final DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
     dos.writeInt(bytes.length);
@@ -210,6 +216,7 @@ class QueueTcpSmokeTest {
   }
 
   private Optional<byte[]> readOptionalResponse(final Socket socket) throws IOException {
+
     try {
       final DataInputStream dis = new DataInputStream(socket.getInputStream());
       final int totalLen = dis.readInt();

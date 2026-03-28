@@ -110,6 +110,7 @@ public final class Binding {
 
   @Override
   public boolean equals(final Object o) {
+
     if (!(o instanceof final Binding b)) {
       return false;
     }
@@ -119,6 +120,7 @@ public final class Binding {
 
   @Override
   public int hashCode() {
+
     return Objects.hash(this.id);
   }
 }
