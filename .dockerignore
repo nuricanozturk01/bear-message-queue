@@ -1,0 +1,8 @@
+.git
+**/node_modules
+**/target
+**/.angular
+**/dist
+**/.idea
+**/*.iml
+**/.DS_Store

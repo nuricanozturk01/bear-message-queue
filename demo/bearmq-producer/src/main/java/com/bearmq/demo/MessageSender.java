@@ -17,7 +17,7 @@ public class MessageSender {
 
   @Async
   public void sendExchangeA() {
-    final var student = Student.builder()
+    final Student student = Student.builder()
             .address("from-A: Address-" + random.nextInt(10, 10000))
             .name("from-A: Name" + random.nextInt(10, 10000))
             .age(random.nextInt(10, 30))
@@ -29,7 +29,7 @@ public class MessageSender {
 
   @Async
   public void sendExchangeB() {
-    final var student = Student.builder()
+    final Student student = Student.builder()
             .address("from-B: Address-" + random.nextInt(10, 10000))
             .name("from-B: Name" + random.nextInt(10, 10000))
             .age(random.nextInt(10, 30))

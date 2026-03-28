@@ -2,15 +2,36 @@ services:
   postgres:
     container_name: bearmq-postgres
     hostname: bearmq-postgres
-    image: postgres:16.3-alpine
+    image: postgres:16-alpine
     environment:
-      - POSTGRES_DB=bearmq
-      - POSTGRES_USER=bearmq
-      - POSTGRES_PASSWORD=bearmq123
+      POSTGRES_DB: bearmq
+      POSTGRES_USER: bearmq
+      POSTGRES_PASSWORD: bearmq123
     ports:
       - "5432:5432"
     networks:
       - bearmq
+
+  bearmq:
+    build: .
+    container_name: bearmq
+    depends_on:
+      - postgres
+    ports:
+      - "3333:3333"
+      - "6667:6667"
+    environment:
+      DB_URL: jdbc:postgresql://bearmq-postgres:5432/bearmq
+      DB_USERNAME: bearmq
+      DB_PASSWORD: bearmq123
+      BEARMQ_ADMIN_INITIAL_PASSWORD: YourSecurePassword123
+    volumes:
+      - bearmq-data:/app/data
+    networks:
+      - bearmq
+
+volumes:
+  bearmq-data:
 
 networks:
   bearmq:

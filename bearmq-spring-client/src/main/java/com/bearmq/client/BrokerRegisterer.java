@@ -2,6 +2,9 @@ package com.bearmq.client;
 
 import com.bearmq.client.config.BearConfig;
 import com.bearmq.client.dto.BrokerForm;
+import com.bearmq.client.dto.BrokerForm.BindingForm;
+import com.bearmq.client.dto.BrokerForm.ExchangeForm;
+import com.bearmq.client.dto.BrokerForm.QueueForm;
 import com.bearmq.client.model.BearBinding;
 import com.bearmq.client.model.BearExchange;
 import com.bearmq.client.model.BearQueue;
@@ -36,11 +39,11 @@ public class BrokerRegisterer implements SmartInitializingSingleton {
 
   @Override
   public void afterSingletonsInstantiated() {
-    final var exDtos =
+    final List<ExchangeForm> exDtos =
         exchanges.stream()
             .map(
                 ex ->
-                    new BrokerForm.ExchangeForm(
+                    new ExchangeForm(
                         ex.name(),
                         ex.type().name(),
                         ex.durable(),
@@ -49,11 +52,11 @@ public class BrokerRegisterer implements SmartInitializingSingleton {
                         Optional.ofNullable(ex.arguments()).orElse(Map.of())))
             .toList();
 
-    final var qDtos =
+    final List<QueueForm> qDtos =
         queues.stream()
             .map(
                 q ->
-                    new BrokerForm.QueueForm(
+                    new QueueForm(
                         q.name(),
                         q.durable(),
                         q.exclusive(),
@@ -61,18 +64,18 @@ public class BrokerRegisterer implements SmartInitializingSingleton {
                         Optional.ofNullable(q.arguments()).orElse(Map.of())))
             .toList();
 
-    final var bDtos =
+    final List<BindingForm> bDtos =
         bindings.stream()
             .map(
                 b ->
-                    new BrokerForm.BindingForm(
+                    new BindingForm(
                         b.getExchange(),
                         b.getDestinationType().name(),
                         b.getDestination(),
                         Optional.ofNullable(b.getRoutingKey()).orElse("")))
             .toList();
 
-    final var payload = new BrokerForm(props.getVirtualHost(), exDtos, qDtos, bDtos);
+    final BrokerForm payload = new BrokerForm(props.getVirtualHost(), exDtos, qDtos, bDtos);
 
     rest.post()
         .uri("/api/broker")
