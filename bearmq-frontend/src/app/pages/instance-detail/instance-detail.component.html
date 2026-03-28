@@ -1,0 +1,466 @@
+@if (loading()) {
+  <div class="text-center py-5">
+    <div class="spinner-border text-primary" role="status" style="width:2.5rem;height:2.5rem">
+      <span class="visually-hidden">Loading</span>
+    </div>
+  </div>
+} @else if (!vhost()) {
+  <div class="card p-5 text-center">
+    <i class="bi bi-exclamation-triangle text-warning mb-3" style="font-size:2.5rem"></i>
+    <p class="text-body-secondary mb-3">Instance not found or could not be loaded.</p>
+    <a routerLink="/instances" class="btn btn-outline-primary mx-auto">Back to instances</a>
+  </div>
+} @else {
+  <div class="instance-detail">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+      <ol class="breadcrumb small mb-0">
+        <li class="breadcrumb-item"><a routerLink="/instances">Instances</a></li>
+        <li class="breadcrumb-item active text-truncate" aria-current="page">{{ vhost()!.name }}</li>
+      </ol>
+    </nav>
+
+    <!-- Header row -->
+    <div class="d-flex flex-column flex-md-row align-items-start justify-content-between gap-3 mb-4">
+      <div class="min-w-0">
+        <div class="d-flex align-items-center gap-3 mb-1 flex-wrap">
+          <h1 class="h3 fw-bold mb-0 text-truncate">{{ vhost()!.name }}</h1>
+          @if (vhost()!.status) {
+            <span class="badge text-bg-secondary">{{ vhost()!.status }}</span>
+          }
+          @if (metrics()) {
+            <span class="badge rounded-pill px-3"
+                  [ngClass]="metrics()!.runtimeLoaded ? 'text-bg-success' : 'text-bg-secondary'">
+              <i class="bi me-1" [ngClass]="metrics()!.runtimeLoaded ? 'bi-circle-fill' : 'bi-circle'"></i>
+              {{ metrics()!.runtimeLoaded ? 'Online' : 'Offline' }}
+            </span>
+          }
+        </div>
+        <p class="text-body-secondary small mb-0 text-break">{{ vhost()!.domain }}</p>
+      </div>
+      <div class="d-flex flex-column align-items-stretch align-items-md-end gap-2">
+        @if (copyHint()) {
+          <div class="badge text-bg-success px-3 py-2">{{ copyHint() }}</div>
+        }
+        <div class="d-flex flex-wrap align-items-center justify-content-md-end gap-2">
+          @if (auth.isAdmin()) {
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-danger"
+              (click)="confirmDeleteInstance($event)"
+            >
+              <i class="bi bi-trash3 me-1"></i>Delete instance
+            </button>
+          }
+          <div class="d-flex align-items-center gap-2">
+            <label class="small text-body-secondary mb-0 text-nowrap" for="vhostStatusSelect">Instance status</label>
+            <select
+              id="vhostStatusSelect"
+              class="form-select form-select-sm"
+              style="max-width: 11rem"
+              [value]="vhost()!.status || 'ACTIVE'"
+              (change)="onStatusSelect($event)"
+              [disabled]="statusUpdating()"
+            >
+              <option value="ACTIVE">Active</option>
+              <option value="PAUSED">Paused</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary pills -->
+    <div class="d-flex flex-wrap gap-2 mb-4">
+      <span class="badge-pill-stat">
+        <i class="bi bi-collection me-1"></i>{{ queues().length }} queues
+      </span>
+      <span class="badge-pill-stat">
+        <i class="bi bi-shuffle me-1"></i>{{ exchanges().length }} exchanges
+      </span>
+      <span class="badge-pill-stat">
+        <i class="bi bi-link-45deg me-1"></i>{{ bindings().length }} bindings
+      </span>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs instance-detail-tabs mb-4" role="tablist">
+      <li class="nav-item flex-shrink-0">
+        <button type="button" class="nav-link d-flex align-items-center gap-2 px-3"
+                [class.active]="tab() === 'overview'" (click)="setTab('overview')">
+          <i class="bi bi-plug"></i><span class="d-none d-sm-inline">Connection</span>
+        </button>
+      </li>
+      <li class="nav-item flex-shrink-0">
+        <button type="button" class="nav-link d-flex align-items-center gap-2 px-3"
+                [class.active]="tab() === 'queues'" (click)="setTab('queues')">
+          <i class="bi bi-collection"></i><span class="d-none d-sm-inline">Queues</span>
+          @if (queues().length > 0) { <span class="badge text-bg-secondary rounded-pill">{{ queues().length }}</span> }
+        </button>
+      </li>
+      <li class="nav-item flex-shrink-0">
+        <button type="button" class="nav-link d-flex align-items-center gap-2 px-3"
+                [class.active]="tab() === 'exchanges'" (click)="setTab('exchanges')">
+          <i class="bi bi-shuffle"></i><span class="d-none d-sm-inline">Exchanges</span>
+          @if (exchanges().length > 0) { <span class="badge text-bg-secondary rounded-pill">{{ exchanges().length }}</span> }
+        </button>
+      </li>
+      <li class="nav-item flex-shrink-0">
+        <button type="button" class="nav-link d-flex align-items-center gap-2 px-3"
+                [class.active]="tab() === 'bindings'" (click)="setTab('bindings')">
+          <i class="bi bi-link-45deg"></i><span class="d-none d-sm-inline">Bindings</span>
+          @if (bindings().length > 0) { <span class="badge text-bg-secondary rounded-pill">{{ bindings().length }}</span> }
+        </button>
+      </li>
+      <li class="nav-item flex-shrink-0">
+        <button type="button" class="nav-link d-flex align-items-center gap-2 px-3"
+                [class.active]="tab() === 'metrics'" (click)="setTab('metrics')">
+          <i class="bi bi-bar-chart"></i><span class="d-none d-sm-inline">Metrics</span>
+        </button>
+      </li>
+      <li class="nav-item flex-shrink-0">
+        <button type="button" class="nav-link d-flex align-items-center gap-2 px-3"
+                [class.active]="tab() === 'snippets'" (click)="setTab('snippets')">
+          <i class="bi bi-code-slash"></i><span class="d-none d-sm-inline">Code</span>
+        </button>
+      </li>
+    </ul>
+
+    <!-- ── Connection tab ─────────────────────────────────────────── -->
+    @if (tab() === 'overview') {
+      <div class="row g-3">
+        <div class="col-12">
+          <div class="card p-3">
+            <div class="d-flex align-items-start gap-3">
+              <i class="bi bi-terminal text-body-secondary mt-1"></i>
+              <div class="min-w-0 flex-grow-1">
+                <div class="small text-body-secondary fw-semibold mb-1">TCP Connection string</div>
+                <code class="small text-break">
+                  bearmq://{{ vhost()!.username }}:••••••••&#64;{{ vhost()!.domain }}:6667/{{ vhost()!.name }}
+                </code>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        @for (card of [
+          {label: 'Host', icon: 'bi-hdd-network', value: vhost()!.domain, copyKey: 'Host'},
+          {label: 'Virtual host', icon: 'bi-server', value: vhost()!.name, copyKey: 'Vhost name'},
+          {label: 'Username', icon: 'bi-person', value: vhost()!.username, copyKey: 'Username'},
+          {label: 'Password', icon: 'bi-key', value: vhost()!.password, copyKey: 'Password', masked: true}
+        ]; track card.label) {
+          <div class="col-12 col-sm-6">
+            <div class="card h-100">
+              <div class="card-body p-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <i class="bi text-body-secondary" [ngClass]="card.icon"></i>
+                  <span class="small text-body-secondary fw-semibold">{{ card.label }}</span>
+                </div>
+                <p class="font-monospace small mb-3 text-break">
+                  {{ card['masked'] ? '••••••••' : card.value }}
+                </p>
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        (click)="copy(card.value, card.copyKey)">
+                  <i class="bi bi-clipboard me-1"></i>Copy
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ── Queues tab ──────────────────────────────────────────────── -->
+    @if (tab() === 'queues') {
+      <div class="card overflow-hidden">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th class="d-none d-md-table-cell">Actual name</th>
+                <th>Durable</th>
+                <th class="d-none d-lg-table-cell">Status</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (q of queues(); track q.id) {
+                <tr>
+                  <td class="fw-medium">{{ q.name }}</td>
+                  <td class="d-none d-md-table-cell text-body-secondary small">{{ q.actualName }}</td>
+                  <td>
+                    @if (q.durable) {
+                      <span class="badge text-bg-success">Yes</span>
+                    } @else {
+                      <span class="badge text-bg-secondary">No</span>
+                    }
+                  </td>
+                  <td class="d-none d-lg-table-cell">
+                    <span class="badge" [ngClass]="q.status === 'ACTIVE' ? 'text-bg-success' : 'text-bg-secondary'">
+                      {{ q.status }}
+                    </span>
+                  </td>
+                  <td class="text-end">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      title="Remove queue"
+                      (click)="confirmDelete('queue', q.id, q.name, $event)"
+                    >
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="5" class="text-center text-body-secondary py-5">
+                    <i class="bi bi-collection d-block mb-2" style="font-size:2rem"></i>
+                    No queues yet. Apply a topology to create them.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- ── Exchanges tab ──────────────────────────────────────────── -->
+    @if (tab() === 'exchanges') {
+      <div class="card overflow-hidden">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th class="d-none d-md-table-cell">Durable</th>
+                <th class="d-none d-lg-table-cell">Status</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (e of exchanges(); track e.id) {
+                <tr>
+                  <td class="fw-medium">{{ e.name }}</td>
+                  <td><span class="badge text-bg-primary">{{ e.type }}</span></td>
+                  <td class="d-none d-md-table-cell">
+                    @if (e.durable) { <span class="badge text-bg-success">Yes</span> }
+                    @else { <span class="badge text-bg-secondary">No</span> }
+                  </td>
+                  <td class="d-none d-lg-table-cell">
+                    <span class="badge" [ngClass]="e.status === 'ACTIVE' ? 'text-bg-success' : 'text-bg-secondary'">
+                      {{ e.status }}
+                    </span>
+                  </td>
+                  <td class="text-end">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      title="Remove exchange"
+                      (click)="confirmDelete('exchange', e.id, e.name, $event)"
+                    >
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="5" class="text-center text-body-secondary py-5">
+                    <i class="bi bi-shuffle d-block mb-2" style="font-size:2rem"></i>
+                    No exchanges yet.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- ── Bindings tab ───────────────────────────────────────────── -->
+    @if (tab() === 'bindings') {
+      <div class="card overflow-hidden">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle small">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Type</th>
+                <th>Destination</th>
+                <th class="d-none d-md-table-cell">Routing key</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (b of bindings(); track b.id) {
+                <tr>
+                  <td>{{ b.sourceExchangeName }}</td>
+                  <td><span class="badge text-bg-secondary">{{ b.destinationType }}</span></td>
+                  <td class="text-break">{{ b.destinationName }}</td>
+                  <td class="d-none d-md-table-cell font-monospace">{{ b.routingKey || '—' }}</td>
+                  <td class="text-end">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      title="Remove binding"
+                      (click)="confirmDelete('binding', b.id, b.sourceExchangeName + ' → ' + b.destinationName, $event)"
+                    >
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="5" class="text-center text-body-secondary py-5">
+                    <i class="bi bi-link-45deg d-block mb-2" style="font-size:2rem"></i>
+                    No bindings yet.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- ── Metrics tab ────────────────────────────────────────────── -->
+    @if (tab() === 'metrics') {
+      @if (!metrics()) {
+        <div class="text-center py-5 text-body-secondary">
+          <div class="spinner-border spinner-border-sm me-2"></div>
+          Loading metrics…
+        </div>
+      } @else {
+        <div class="row g-3 mb-4">
+          <div class="col-6 col-md-3">
+            <div class="card text-center p-3">
+              <div class="display-6 fw-bold text-primary">{{ metrics()!.queueCount }}</div>
+              <div class="small text-body-secondary mt-1">Queues</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card text-center p-3">
+              <div class="display-6 fw-bold" style="color:#7c3aed">{{ metrics()!.exchangeCount }}</div>
+              <div class="small text-body-secondary mt-1">Exchanges</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card text-center p-3">
+              <div class="display-6 fw-bold" style="color:#0891b2">{{ metrics()!.bindingCount }}</div>
+              <div class="small text-body-secondary mt-1">Bindings</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card text-center p-3">
+              <div class="fw-bold mt-2">
+                <span class="badge rounded-pill px-3 py-2"
+                      [ngClass]="metrics()!.runtimeLoaded ? 'text-bg-success' : 'text-bg-secondary'">
+                  <i class="bi me-1" [ngClass]="metrics()!.runtimeLoaded ? 'bi-circle-fill' : 'bi-circle'"></i>
+                  {{ metrics()!.runtimeLoaded ? 'Online' : 'Offline' }}
+                </span>
+              </div>
+              <div class="small text-body-secondary mt-2">Runtime</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Queue runtime status -->
+        @if (metrics()!.queues.length > 0) {
+          <div class="card overflow-hidden">
+            <div class="card-header bg-transparent border-bottom py-3">
+              <span class="fw-semibold small">Queue runtime status</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover mb-0 align-middle small">
+                <thead>
+                  <tr>
+                    <th>Queue</th>
+                    <th>Status</th>
+                    <th>Runtime loaded</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (q of metrics()!.queues; track q.id) {
+                    <tr>
+                      <td class="fw-medium font-monospace">{{ q.name }}</td>
+                      <td>
+                        <span class="badge" [ngClass]="q.status === 'ACTIVE' ? 'text-bg-success' : 'text-bg-secondary'">
+                          {{ q.status }}
+                        </span>
+                      </td>
+                      <td>
+                        @if (q.runtimeLoaded) {
+                          <span class="badge text-bg-success"><i class="bi bi-check-lg me-1"></i>Loaded</span>
+                        } @else {
+                          <span class="badge text-bg-secondary"><i class="bi bi-dash me-1"></i>Not loaded</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+      }
+    }
+
+    <!-- ── Code snippets tab ──────────────────────────────────────── -->
+    @if (tab() === 'snippets') {
+      <div class="row g-3">
+        <div class="col-12">
+          <p class="text-body-secondary small mb-3">
+            Ready-to-use code snippets pre-filled with this instance's credentials.
+            <strong class="text-warning">Never commit credentials to source control.</strong>
+          </p>
+          <app-snippet [tabs]="snippetTabs()" />
+        </div>
+      </div>
+    }
+
+  </div>
+}
+
+@if (pendingDelete(); as del) {
+  <div class="modal d-block" tabindex="-1" role="dialog" style="background: rgba(0, 0, 0, 0.5)">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title">
+            @if (del.kind === 'vhost') {
+              Remove instance?
+            } @else {
+              Remove {{ del.kind }}?
+            }
+          </h5>
+          <button type="button" class="btn-close" (click)="cancelDelete()" aria-label="Close"></button>
+        </div>
+        <div class="modal-body pt-3">
+          <p class="mb-0 small text-break">
+            @if (del.kind === 'vhost') {
+              <strong>{{ del.label }}</strong> and its runtime data will be removed. This cannot be undone.
+            } @else {
+              <strong>{{ del.label }}</strong> will be removed from this instance.
+            }
+          </p>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-outline-secondary" (click)="cancelDelete()" [disabled]="deleteBusy()">
+            Cancel
+          </button>
+          <button type="button" class="btn btn-danger px-4" (click)="executeDelete()" [disabled]="deleteBusy()">
+            @if (deleteBusy()) {
+              <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+            }
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+

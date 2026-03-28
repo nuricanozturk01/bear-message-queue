@@ -1,0 +1,14 @@
+spring:
+  main:
+    banner-mode: off
+
+bearmq:
+  server:
+    metrics:
+      enabled: false
+    broker:
+      dequeue-wait-ms: 8000
+
+logging:
+  level:
+    root: warn

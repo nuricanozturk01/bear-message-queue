@@ -1,0 +1,146 @@
+<div class="app-shell">
+
+  <div class="mobile-trigger d-flex d-lg-none align-items-center gap-3 px-3">
+    <button
+      class="btn btn-sm btn-ghost-secondary"
+      type="button"
+      data-bs-toggle="offcanvas"
+      data-bs-target="#sidebarNav"
+      aria-controls="sidebarNav"
+      aria-label="Open navigation"
+    >
+      <i class="bi bi-list fs-5"></i>
+    </button>
+    <a class="d-flex align-items-center text-decoration-none mobile-brand-link" routerLink="/dashboard">
+      <img src="/logo.png" alt="BearMQ" class="mobile-brand-logo" />
+    </a>
+  </div>
+
+  <div class="app-body">
+
+    <aside class="d-none d-lg-flex flex-column app-sidebar">
+
+      <a class="sidebar-logo" routerLink="/dashboard" style="display: flex; justify-content: center; align-items: center;">
+        <img src="/logo.png" width="130" alt="BearMQ" />
+      </a>
+
+      <nav class="nav flex-column gap-1 mt-2" aria-label="Main">
+        <a routerLink="/dashboard" routerLinkActive="active"
+           [routerLinkActiveOptions]="{ exact: true }"
+           class="nav-link">
+          <i class="bi bi-grid-1x2"></i>
+          <span>Dashboard</span>
+        </a>
+        <a routerLink="/instances" routerLinkActive="active" class="nav-link">
+          <i class="bi bi-server"></i>
+          <span>Instances</span>
+        </a>
+        <a routerLink="/topology" routerLinkActive="active" class="nav-link">
+          <i class="bi bi-diagram-3"></i>
+          <span>Topology</span>
+        </a>
+        @if (auth.isAdmin()) {
+          <a routerLink="/teams" routerLinkActive="active" class="nav-link">
+            <i class="bi bi-people"></i>
+            <span>Teams</span>
+          </a>
+        }
+        <a routerLink="/settings" routerLinkActive="active" class="nav-link">
+          <i class="bi bi-gear"></i>
+          <span>Settings</span>
+        </a>
+      </nav>
+
+      <div class="mt-auto d-flex flex-column gap-1">
+        <div class="sidebar-divider"></div>
+
+        <button
+          type="button"
+          class="nav-link btn-reset w-100"
+          (click)="toggleTheme()"
+        >
+          @if (theme.theme() === 'dark') {
+            <i class="bi bi-sun"></i>
+            <span>Light mode</span>
+          } @else {
+            <i class="bi bi-moon"></i>
+            <span>Dark mode</span>
+          }
+        </button>
+
+        <div class="sidebar-user">
+          <i class="bi bi-person-circle"></i>
+          <span class="text-truncate flex-grow-1">{{ auth.username() ?? 'Account' }}</span>
+          <button
+            type="button"
+            class="btn-reset sign-out"
+            (click)="auth.logout()"
+            title="Sign out"
+          >
+            <i class="bi bi-box-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="offcanvas offcanvas-start app-offcanvas d-lg-none"
+         tabindex="-1" id="sidebarNav" aria-labelledby="sidebarNavLabel">
+      <div class="offcanvas-header align-items-center">
+        <a class="d-flex align-items-center text-decoration-none offcanvas-brand-link" routerLink="/dashboard">
+          <img src="/logo.png" alt="BearMQ" class="offcanvas-brand-logo" id="sidebarNavLabel" />
+        </a>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body d-flex flex-column">
+        <nav class="nav flex-column gap-1" aria-label="Main mobile">
+          <a routerLink="/dashboard" routerLinkActive="active"
+             [routerLinkActiveOptions]="{ exact: true }"
+             class="nav-link" data-bs-dismiss="offcanvas">
+            <i class="bi bi-grid-1x2"></i> Dashboard
+          </a>
+          <a routerLink="/instances" routerLinkActive="active"
+             class="nav-link" data-bs-dismiss="offcanvas">
+            <i class="bi bi-server"></i> Instances
+          </a>
+          <a routerLink="/topology" routerLinkActive="active"
+             class="nav-link" data-bs-dismiss="offcanvas">
+            <i class="bi bi-diagram-3"></i> Topology
+          </a>
+          @if (auth.isAdmin()) {
+            <a routerLink="/teams" routerLinkActive="active"
+               class="nav-link" data-bs-dismiss="offcanvas">
+              <i class="bi bi-people"></i> Teams
+            </a>
+          }
+          <a routerLink="/settings" routerLinkActive="active"
+             class="nav-link" data-bs-dismiss="offcanvas">
+            <i class="bi bi-gear"></i> Settings
+          </a>
+        </nav>
+
+        <div class="mt-auto d-flex flex-column gap-1">
+          <div class="sidebar-divider"></div>
+          <button type="button" class="nav-link btn-reset w-100" (click)="toggleTheme()">
+            @if (theme.theme() === 'dark') {
+              <i class="bi bi-sun"></i> Light mode
+            } @else {
+              <i class="bi bi-moon"></i> Dark mode
+            }
+          </button>
+          <button type="button" class="nav-link btn-reset w-100 text-danger" (click)="auth.logout()">
+            <i class="bi bi-box-arrow-right"></i> Sign out
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <main class="flex-grow-1 overflow-auto app-main">
+      <div class="container-fluid px-3 px-md-4 py-3 py-lg-4">
+        <router-outlet />
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<app-toast-container />

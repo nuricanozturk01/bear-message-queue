@@ -1,0 +1,55 @@
+<div class="settings-page">
+  <div class="settings-layout">
+    <div class="page-header mb-4 text-center">
+      <h1 class="mb-1">Settings</h1>
+      <p class="mb-0 text-body-secondary">Account security</p>
+    </div>
+
+    <div class="card border-0 shadow-sm settings-card">
+      <div class="card-body p-4 p-md-5">
+        <h2 class="h6 fw-semibold mb-3">Change password</h2>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Current password</label>
+        <input
+          type="password"
+          class="form-control"
+          autocomplete="current-password"
+          [value]="changePwForm().current"
+          (input)="changePwForm.update((f) => ({ ...f, current: $any($event.target).value }))"
+        />
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">New password (min 6 characters)</label>
+        <input
+          type="password"
+          class="form-control"
+          autocomplete="new-password"
+          [value]="changePwForm().next"
+          (input)="changePwForm.update((f) => ({ ...f, next: $any($event.target).value }))"
+        />
+        </div>
+        <div class="mb-4">
+          <label class="form-label small fw-semibold">Confirm new password</label>
+        <input
+          type="password"
+          class="form-control"
+          autocomplete="new-password"
+          [value]="changePwForm().next2"
+          (input)="changePwForm.update((f) => ({ ...f, next2: $any($event.target).value }))"
+        />
+        </div>
+        <button
+          type="button"
+          class="btn btn-primary px-4"
+          (click)="submitChangePw()"
+          [disabled]="changePwBusy()"
+        >
+          @if (changePwBusy()) {
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+          }
+          Update password
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

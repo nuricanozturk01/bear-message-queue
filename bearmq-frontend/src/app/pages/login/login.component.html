@@ -1,0 +1,53 @@
+<div class="auth-page row justify-content-center align-items-center min-vh-100 g-0 px-2 py-4">
+  <div class="col-12 col-sm-10 col-md-8 col-lg-5 col-xl-4">
+    <div class="card border-0 shadow-lg auth-card">
+      <div class="card-body p-4 p-md-5">
+        <div class="text-center mb-4">
+          <a class="d-inline-flex justify-content-center align-items-center" routerLink="/dashboard">
+            <img src="/logo.png" alt="BearMQ" class="login-brand-logo" />
+          </a>
+        </div>
+
+        @if (error()) {
+          <div class="alert alert-danger py-2 small" role="alert">{{ error() }}</div>
+        }
+
+        <form (ngSubmit)="submit()" #f="ngForm">
+          <div class="mb-3">
+            <label class="form-label" for="username">Username</label>
+            <input
+              id="username"
+              name="username"
+              class="form-control form-control-lg"
+              [(ngModel)]="username"
+              required
+              autocomplete="username"
+            />
+          </div>
+          <div class="mb-4">
+            <label class="form-label" for="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              class="form-control form-control-lg"
+              [(ngModel)]="password"
+              required
+              autocomplete="current-password"
+            />
+          </div>
+          <button
+            type="submit"
+            class="btn btn-primary w-100 btn-lg"
+            [disabled]="!f.valid || loading()"
+          >
+            @if (loading()) {
+              <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+            }
+            Sign in
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

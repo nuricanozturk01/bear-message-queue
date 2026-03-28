@@ -1,0 +1,34 @@
+<div class="snippet-block card overflow-hidden">
+  <div class="snippet-header d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+    <ul class="nav gap-1 mb-0" role="tablist">
+      @for (t of tabs(); track t.label; let i = $index) {
+        <li class="nav-item">
+          <button
+            type="button"
+            class="snippet-tab btn btn-sm"
+            [class.active]="activeIdx() === i"
+            (click)="setTab(i)"
+            [attr.aria-selected]="activeIdx() === i"
+            role="tab"
+          >
+            {{ t.label }}
+          </button>
+        </li>
+      }
+    </ul>
+    <button type="button" class="btn btn-sm snippet-copy-btn" (click)="copy()">
+      @if (copyHint()) {
+        <i class="bi bi-check2 text-success me-1"></i>
+        <span class="small text-success">{{ copyHint() }}</span>
+      } @else {
+        <i class="bi bi-clipboard me-1"></i>
+        <span class="small">Copy</span>
+      }
+    </button>
+  </div>
+  <div class="snippet-body">
+    <pre class="mb-0"><code #codeEl [class]="'language-' + tabs()[activeIdx()]?.lang">{{ tabs()[activeIdx()]?.code }}</code></pre>
+  </div>
+  <!-- Invisible sentinel: changing activeIdx() forces a re-render cycle for AfterViewChecked -->
+  <span aria-hidden="true" style="display:none">{{ activeIdx() }}</span>
+</div>

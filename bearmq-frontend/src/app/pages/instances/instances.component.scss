@@ -1,0 +1,8 @@
+.instance-row:focus-visible {
+  outline: 2px solid var(--bearmq-primary);
+  outline-offset: -2px;
+}
+
+.card {
+  transition: box-shadow 0.12s ease;
+}

@@ -1,0 +1,218 @@
+<div class="teams-page">
+  <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3 mb-4">
+    <div>
+      <h1 class="mb-1">Teams</h1>
+      <p class="mb-0 text-body-secondary">Manage workspace users, roles, and passwords.</p>
+    </div>
+    <button type="button" class="btn btn-primary btn-sm px-3" (click)="showAddUserModal.set(true)">
+      <i class="bi bi-person-plus me-1"></i>Add user
+    </button>
+  </div>
+
+  <div class="card overflow-hidden">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 small">
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Role</th>
+            <th class="d-none d-lg-table-cell">Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (u of users(); track u.id) {
+            <tr>
+              <td class="fw-medium">{{ u.username }}</td>
+              <td>
+                <span class="badge" [ngClass]="u.role === 'ADMIN' ? 'text-bg-primary' : 'text-bg-secondary'">
+                  {{ u.role }}
+                </span>
+              </td>
+              <td class="d-none d-lg-table-cell">
+                <span class="badge" [ngClass]="u.status === 'ACTIVE' ? 'text-bg-success' : 'text-bg-warning'">
+                  {{ u.status }}
+                </span>
+              </td>
+              <td class="text-end">
+                <div class="d-flex gap-1 justify-content-end flex-wrap">
+                  @if (!isSelf(u)) {
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      (click)="toggleUserRole(u)"
+                      title="Toggle role"
+                    >
+                      <i class="bi bi-arrow-repeat"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      (click)="openAdminResetModal(u)"
+                      title="Reset password"
+                    >
+                      <i class="bi bi-key"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      (click)="confirmDeleteUser(u)"
+                      title="Remove user"
+                    >
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  } @else {
+                    <span class="text-body-secondary small">You</span>
+                  }
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="4" class="text-center text-body-secondary py-4">No users found.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+@if (showAddUserModal()) {
+  <div class="modal d-block" style="background: rgba(0, 0, 0, 0.5)" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>New user</h5>
+          <button type="button" class="btn-close" (click)="showAddUserModal.set(false)"></button>
+        </div>
+        <div class="modal-body py-3">
+          <div class="row g-3">
+            <div class="col-12 col-sm-6">
+              <label class="form-label small fw-semibold">Username</label>
+              <input
+                type="text"
+                class="form-control"
+                autocomplete="username"
+                [value]="addUserForm().username"
+                (input)="addUserForm.update((f) => ({ ...f, username: $any($event.target).value }))"
+              />
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label small fw-semibold">Password</label>
+              <input
+                type="password"
+                class="form-control"
+                autocomplete="new-password"
+                [value]="addUserForm().password"
+                (input)="addUserForm.update((f) => ({ ...f, password: $any($event.target).value }))"
+              />
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label small fw-semibold">Role</label>
+              <select
+                class="form-select"
+                [value]="addUserForm().role"
+                (change)="addUserForm.update((f) => ({ ...f, role: $any($event.target).value }))"
+              >
+                <option value="USER">User</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-outline-secondary" (click)="showAddUserModal.set(false)">Cancel</button>
+          <button type="button" class="btn btn-primary px-4" (click)="submitAddUser()" [disabled]="addUserBusy()">
+            @if (addUserBusy()) {
+              <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Create user
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@if (adminResetTarget(); as resetUser) {
+  <div class="modal d-block" style="background: rgba(0, 0, 0, 0.5)" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title"><i class="bi bi-key me-2"></i>Reset password</h5>
+          <button type="button" class="btn-close" (click)="closeAdminResetModal()"></button>
+        </div>
+        <div class="modal-body py-3">
+          <p class="small text-body-secondary mb-3">
+            Set a new password for <strong>{{ resetUser.username }}</strong>.
+          </p>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">New password (min 6 characters)</label>
+            <input
+              type="password"
+              class="form-control"
+              autocomplete="new-password"
+              [value]="adminResetForm().next"
+              (input)="adminResetForm.update((f) => ({ ...f, next: $any($event.target).value }))"
+            />
+          </div>
+          <div>
+            <label class="form-label small fw-semibold">Confirm new password</label>
+            <input
+              type="password"
+              class="form-control"
+              autocomplete="new-password"
+              [value]="adminResetForm().next2"
+              (input)="adminResetForm.update((f) => ({ ...f, next2: $any($event.target).value }))"
+            />
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-outline-secondary" (click)="closeAdminResetModal()">Cancel</button>
+          <button
+            type="button"
+            class="btn btn-primary px-4"
+            (click)="submitAdminResetPassword()"
+            [disabled]="adminResetBusy()"
+          >
+            @if (adminResetBusy()) {
+              <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Update password
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@if (pendingDeleteUser(); as delUser) {
+  <div class="modal d-block" tabindex="-1" role="dialog" style="background: rgba(0, 0, 0, 0.5)">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title">Remove user?</h5>
+          <button type="button" class="btn-close" (click)="cancelDeleteUser()" aria-label="Close"></button>
+        </div>
+        <div class="modal-body pt-3">
+          <p class="mb-0 small">
+            This will remove <strong>{{ delUser.username }}</strong> from the workspace. They will no longer be able to
+            sign in.
+          </p>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-outline-secondary" (click)="cancelDeleteUser()" [disabled]="deleteUserBusy()">
+            Cancel
+          </button>
+          <button type="button" class="btn btn-danger px-4" (click)="executeDeleteUser()" [disabled]="deleteUserBusy()">
+            @if (deleteUserBusy()) {
+              <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+            }
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

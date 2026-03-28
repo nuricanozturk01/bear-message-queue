@@ -1,10 +1,10 @@
 package com.bearmq.shared.vhost;
 
-import com.bearmq.api.tenant.Tenant;
 import com.bearmq.shared.binding.Binding;
 import com.bearmq.shared.broker.Status;
 import com.bearmq.shared.exchange.Exchange;
 import com.bearmq.shared.queue.Queue;
+import com.bearmq.shared.tenant.Tenant;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -35,6 +35,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @Getter
 @Setter
 public class VirtualHost {
+
   @Id
   @Column(nullable = false, unique = true, length = 26)
   private String id;
@@ -98,11 +99,11 @@ public class VirtualHost {
       return false;
     }
 
-    return Objects.equals(id, that.id) && Objects.equals(name, that.name);
+    return Objects.equals(this.id, that.id) && Objects.equals(this.name, that.name);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, name);
+    return Objects.hash(this.id, this.name);
   }
 }

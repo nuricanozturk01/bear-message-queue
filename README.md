@@ -157,15 +157,15 @@ Configuration is managed through `application.yml` and includes settings for:
 ## 📈 Roadmap
 
 - [x] **Task 1**: ~~Implement MVP version~~
-- [ ] **Task 2**: Implement Spring Security and JWT Token
-- [ ] **Task 3**: Separate Broker Server, Metrics Server and REST API
-- [ ] **Task 4**: Implement Metrics API
-- [ ] **Task 5**: Design and Implement Admin Panel
-- [ ] **Task 6**: Design and Implement SaaS Landing page and panel
-- [ ] **Task 7**: Review and solve problems (e.g., handle empty queue exceptions properly)
+- [x] **Task 2**: ~~Implement Spring Security and JWT Token~~
+- [x] **Task 3**: ~~Separate Broker Server, Metrics Server and REST API~~
+- [x] **Task 4**: ~~Implement Metrics API~~
+- [x] **Task 5**: ~~Design and Implement Admin Panel~~
+- [x] **Task 6**: ~~Design and Implement SaaS Landing page and panel~~
+- [x] **Task 7**: ~~Review and solve problems (e.g., handle empty queue exceptions properly)~~
 - [ ] **Task 8**: Guarantee data integrity and prevent message loss
-- [ ] **Task 9**: Implement Retry operations for critical components
-- [ ] **Task 10**: Add comprehensive test coverage
+- [x] **Task 9**: ~~Implement Retry operations for critical components~~
+- [x] **Task 10**: ~~Add comprehensive test coverage~~
 - [ ] **Task 11**: Performance optimization and benchmarking
 
 ---

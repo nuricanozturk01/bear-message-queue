@@ -1,0 +1,252 @@
+<div class="dashboard">
+  <div class="page-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center
+              justify-content-between gap-3">
+    <div>
+      <h1 class="mb-1">Dashboard</h1>
+      <p class="mb-0">Overview of your BearMQ workspace.</p>
+    </div>
+    <a routerLink="/instances" class="btn btn-primary px-4">
+      <i class="bi bi-plus-lg me-2"></i>New instance
+    </a>
+  </div>
+
+  <div class="row g-3 g-lg-4 row-cols-1 row-cols-sm-2 row-cols-xl-4 mb-4">
+    <div class="col">
+      <div class="card stat-card h-100">
+        <div class="card-body p-4 d-flex flex-column gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="stat-icon rounded-3 flex-shrink-0" style="background: rgba(var(--bearmq-primary-rgb), 0.1)">
+              <i class="bi bi-server" style="color: var(--bearmq-primary)"></i>
+            </span>
+            <span class="text-body-secondary small fw-semibold text-uppercase tracking-wide"> Instances </span>
+          </div>
+          @if (loading()) {
+            <div class="placeholder-glow">
+              <span class="placeholder col-5 rounded" style="height: 2rem"></span>
+            </div>
+          } @else {
+            <div class="mt-auto">
+              <div class="display-6 fw-bold">{{ metrics()?.usedVhosts ?? '—' }}</div>
+              <div class="small text-body-secondary mt-1">Virtual hosts</div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card stat-card accent-2 h-100">
+        <div class="card-body p-4 d-flex flex-column gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="stat-icon rounded-3 flex-shrink-0" style="background: rgba(124, 58, 237, 0.1)">
+              <i class="bi bi-collection" style="color: #7c3aed"></i>
+            </span>
+            <span class="text-body-secondary small fw-semibold text-uppercase tracking-wide"> Queues </span>
+          </div>
+          @if (loading()) {
+            <div class="placeholder-glow">
+              <span class="placeholder col-5 rounded" style="height: 2rem"></span>
+            </div>
+          } @else {
+            <div class="mt-auto">
+              <div class="display-6 fw-bold">{{ metrics()?.usedQueues ?? '—' }}</div>
+              <div class="small text-body-secondary mt-1">Across all instances</div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card stat-card accent-3 h-100">
+        <div class="card-body p-4 d-flex flex-column gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="stat-icon rounded-3 flex-shrink-0" style="background: rgba(8, 145, 178, 0.1)">
+              <i class="bi bi-shuffle" style="color: #0891b2"></i>
+            </span>
+            <span class="text-body-secondary small fw-semibold text-uppercase tracking-wide"> Exchanges </span>
+          </div>
+          @if (loading()) {
+            <div class="placeholder-glow">
+              <span class="placeholder col-5 rounded" style="height: 2rem"></span>
+            </div>
+          } @else {
+            <div class="mt-auto">
+              <div class="display-6 fw-bold">{{ metrics()?.usedExchanges ?? '—' }}</div>
+              <div class="small text-body-secondary mt-1">Across all instances</div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card stat-card accent-4 h-100">
+        <div class="card-body p-4 d-flex flex-column gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="stat-icon rounded-3 flex-shrink-0" style="background: rgba(217, 119, 6, 0.1)">
+              <i class="bi bi-key" style="color: #d97706"></i>
+            </span>
+            <span class="text-body-secondary small fw-semibold text-uppercase tracking-wide"> Messaging API key </span>
+          </div>
+          <div class="mt-auto">
+            <div class="api-key-display font-monospace small text-break mb-3" [class.blurred]="!apiKeyRevealed()">
+              {{ auth.apiKey() ?? '—' }}
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <button type="button" class="btn btn-sm btn-outline-secondary" (click)="toggleReveal()">
+                <i class="bi" [class.bi-eye]="!apiKeyRevealed()" [class.bi-eye-slash]="apiKeyRevealed()"></i>
+                {{ apiKeyRevealed() ? 'Hide' : 'Reveal' }}
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" (click)="copyApiKey()">
+                <i class="bi bi-clipboard me-1"></i>{{ copyHint() ?? 'Copy' }}
+              </button>
+              @if (auth.isAdmin()) {
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-warning"
+                  (click)="rotateApiKey()"
+                  [disabled]="rotateBusy()"
+                  title="Generate a new key (invalidates the old one)"
+                >
+                  @if (rotateBusy()) {
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                  } @else {
+                    <i class="bi bi-arrow-repeat me-1"></i>Rotate
+                  }
+                </button>
+              }
+            </div>
+            <p class="small text-body-secondary mt-2 mb-0">Shared for all users. TCP and HTTP clients use this key.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mb-4">
+    <h2 class="section-label mb-3">Quick actions</h2>
+    <div class="row g-3">
+      <div class="col-12 col-sm-6 col-lg-4">
+        <a
+          routerLink="/instances"
+          class="card card-hover text-decoration-none p-3 d-flex flex-row align-items-center gap-3"
+        >
+          <span class="action-icon rounded-3 flex-shrink-0" style="background: rgba(var(--bearmq-primary-rgb), 0.1)">
+            <i class="bi bi-plus-circle" style="color: var(--bearmq-primary)"></i>
+          </span>
+          <div class="min-w-0">
+            <div class="fw-semibold small">Create instance</div>
+            <div class="text-body-secondary" style="font-size: 0.78rem">New virtual host</div>
+          </div>
+          <i class="bi bi-chevron-right ms-auto text-body-secondary small"></i>
+        </a>
+      </div>
+      <div class="col-12 col-sm-6 col-lg-4">
+        <a
+          routerLink="/topology"
+          class="card card-hover text-decoration-none p-3 d-flex flex-row align-items-center gap-3"
+        >
+          <span class="action-icon rounded-3 flex-shrink-0" style="background: rgba(8, 145, 178, 0.1)">
+            <i class="bi bi-diagram-3" style="color: #0891b2"></i>
+          </span>
+          <div class="min-w-0">
+            <div class="fw-semibold small">Apply topology</div>
+            <div class="text-body-secondary" style="font-size: 0.78rem">Queues &amp; exchanges</div>
+          </div>
+          <i class="bi bi-chevron-right ms-auto text-body-secondary small"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  @if (resources()) {
+    <div>
+      <h2 class="section-label mb-3">Server resources</h2>
+      <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-xl-4">
+        <div class="col">
+          <div class="card h-100 p-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <i class="bi bi-memory text-body-secondary"></i>
+              <span class="small fw-semibold">JVM Heap</span>
+              <span class="ms-auto small fw-bold text-{{ quotaColor(resources()!.heapUsedPct) }}">
+                {{ resources()!.heapUsedPct }}%
+              </span>
+            </div>
+            <div class="progress mb-2" style="height: 6px">
+              <div
+                class="progress-bar bg-{{ quotaColor(resources()!.heapUsedPct) }}"
+                [style.width.%]="resources()!.heapUsedPct"
+              ></div>
+            </div>
+            <div class="small text-body-secondary mt-auto">
+              {{ resources()!.heapUsedMb }} / {{ resources()!.heapCommittedMb }} MB
+              @if (resources()!.heapMaxMb > 0) {
+                <span class="text-body-secondary opacity-75">(max {{ resources()!.heapMaxMb }})</span>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="card h-100 p-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <i class="bi bi-layers text-body-secondary"></i>
+              <span class="small fw-semibold">Non-Heap</span>
+            </div>
+            <div class="display-6 fw-bold mt-auto" style="font-size: 1.5rem">
+              {{ resources()!.nonHeapUsedMb }}
+              <span class="small text-body-secondary fw-normal fs-6">MB</span>
+            </div>
+            <div class="small text-body-secondary">Off-heap used</div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="card h-100 p-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <i class="bi bi-speedometer2 text-body-secondary"></i>
+              <span class="small fw-semibold">CPU</span>
+            </div>
+            @if (resources()!.processCpuPct >= 0) {
+              <div class="row g-2 mt-auto">
+                <div class="col-6">
+                  <div class="small text-body-secondary">Process</div>
+                  <div class="fw-bold">{{ resources()!.processCpuPct }}%</div>
+                </div>
+                <div class="col-6">
+                  <div class="small text-body-secondary">System</div>
+                  <div class="fw-bold">
+                    {{ resources()!.systemCpuPct >= 0 ? resources()!.systemCpuPct + '%' : '—' }}
+                  </div>
+                </div>
+              </div>
+            } @else {
+              <div class="small text-body-secondary mt-auto">Measuring…</div>
+            }
+            <div class="small text-body-secondary mt-2">{{ resources()!.availableProcessors }} cores</div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="card h-100 p-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <i class="bi bi-clock-history text-body-secondary"></i>
+              <span class="small fw-semibold">Runtime</span>
+            </div>
+            <div class="row g-2 mt-auto">
+              <div class="col-6">
+                <div class="small text-body-secondary">Threads</div>
+                <div class="fw-bold">{{ resources()!.threadCount }}</div>
+              </div>
+              <div class="col-6">
+                <div class="small text-body-secondary">Uptime</div>
+                <div class="fw-bold">{{ formatUptime(resources()!.uptimeSeconds) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

@@ -1,10 +1,10 @@
 bearmq:
-  username: gkxockzmeyjhuoodczbyriogw
-  password: hZyrEkooaaHamNMWuKGHARNPN
+  username: enhlgcdcflttdkizu
+  password: gwzRYzGQqrgGDTUrF
   host: localhost
   port: 6667
-  virtual-host: nuricanozturk-jsquewyboyhlfoobdiqltqber
-  api-key: bearmqt-vRvkJYiEtgYWHYxwZdzAcRFmxNTrpgwRpNRniExYcaof
+  virtual-host: OZTURK-vjykrtzpzsfawlwbs
+  api-key: bearmqt-BAoCQtQKeDpbfaVVmphyFQfWyqbGwAwAJNoVaUfQlvZi
 logging:
   level:
     root: warn

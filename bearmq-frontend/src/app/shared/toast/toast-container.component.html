@@ -1,0 +1,32 @@
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1090">
+  @for (toast of toastService.toasts(); track toast.id) {
+    <div
+      class="toast show align-items-center border-0 mb-2"
+      [ngClass]="'text-bg-' + toast.type"
+      role="alert"
+      aria-live="assertive"
+      aria-atomic="true"
+    >
+      <div class="d-flex">
+        <div class="toast-body d-flex align-items-center gap-2">
+          @if (toast.type === 'success') {
+            <i class="bi bi-check-circle-fill flex-shrink-0"></i>
+          } @else if (toast.type === 'danger') {
+            <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+          } @else if (toast.type === 'warning') {
+            <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i>
+          } @else {
+            <i class="bi bi-info-circle-fill flex-shrink-0"></i>
+          }
+          <span>{{ toast.message }}</span>
+        </div>
+        <button
+          type="button"
+          class="btn-close btn-close-white me-2 m-auto"
+          aria-label="Close"
+          (click)="toastService.dismiss(toast.id)"
+        ></button>
+      </div>
+    </div>
+  }
+</div>

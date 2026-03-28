@@ -1,11 +1,14 @@
 package com.bearmq.api.tenant;
 
 import com.bearmq.api.auth.dto.RegisterRequest;
-import com.bearmq.api.subscription.SubscriptionPlanRepository;
-import com.bearmq.api.subscription.SubscriptionPlans;
+import com.bearmq.api.common.exception.ConflictException;
+import com.bearmq.api.common.exception.UnauthorizedException;
 import com.bearmq.api.tenant.converter.TenantConverter;
 import com.bearmq.api.tenant.dto.TenantAuthenticateInfo;
-import com.bearmq.api.tenant.dto.TenantInfo;
+import com.bearmq.shared.tenant.Tenant;
+import com.bearmq.shared.tenant.TenantRepository;
+import com.bearmq.shared.tenant.TenantRole;
+import com.bearmq.shared.tenant.TenantStatus;
 import com.github.f4b6a3.ulid.UlidCreator;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -15,60 +18,63 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class TenantService {
+
   private static final int SALT_LENGTH = 16;
-  private static final int API_KEY_LENGTH = 44;
 
   private final TenantRepository tenantRepository;
   private final TenantConverter tenantConverter;
-  private final SubscriptionPlanRepository subscriptionPlanRepository;
 
   public TenantAuthenticateInfo create(final RegisterRequest request) {
-    if (tenantRepository.existsByUsernameOrEmail(request.username(), request.email())) {
-      return null;
+    final var existing = this.tenantRepository.findByUsername(request.username());
+    if (existing.isPresent()) {
+      final Tenant t = existing.get();
+      if (!t.isDeleted()) {
+        throw new ConflictException("Username already registered");
+      }
+      this.applyNewPassword(t, request.password());
+      t.setDeleted(false);
+      t.setStatus(TenantStatus.ACTIVE);
+      t.setRole(TenantRole.USER);
+      return this.tenantConverter.toTenantAuthenticateInfo(this.tenantRepository.save(t));
     }
 
-    final var plan =
-        subscriptionPlanRepository
-            .findByName((SubscriptionPlans.FREE))
-            .orElseThrow(() -> new RuntimeException("Subscription Plan Not Found"));
-
-    final var salt = RandomStringUtils.secure().nextAlphanumeric(SALT_LENGTH);
-    final var password = DigestUtils.sha256Hex(salt + request.password());
-
-    final var apiKey =
-        String.format("bearmqt-%s", RandomStringUtils.secure().next(API_KEY_LENGTH, true, false));
+    final String salt = RandomStringUtils.secure().nextAlphanumeric(SALT_LENGTH);
+    final String password = DigestUtils.sha256Hex(salt + request.password());
 
     final Tenant tenantObj =
         Tenant.builder()
             .id(UlidCreator.getUlid().toString())
-            .fullName(request.fullName())
-            .email(request.email())
             .username(request.username())
-            .plan(plan)
             .status(TenantStatus.ACTIVE)
-            .apiKey(apiKey)
+            .role(TenantRole.USER)
             .salt(salt)
             .password(password)
+            .deleted(false)
             .build();
 
-    final Tenant savedTenant = tenantRepository.save(tenantObj);
-
-    return tenantConverter.toTenantAuthenticateInfo(savedTenant);
+    final Tenant savedTenant = this.tenantRepository.save(tenantObj);
+    return this.tenantConverter.toTenantAuthenticateInfo(savedTenant);
   }
 
-  public TenantAuthenticateInfo findByUsername(final String username) {
-    final Tenant tenant =
-        tenantRepository
-            .findByUsername(username)
-            .orElseThrow(() -> new RuntimeException("Tenant Not Found"));
-
-    return tenantConverter.toTenantAuthenticateInfo(tenant);
+  public TenantAuthenticateInfo requireAuthenticateByUsername(final String username) {
+    return this.tenantRepository
+        .findByUsername(username)
+        .filter(t -> !t.isDeleted())
+        .map(this.tenantConverter::toTenantAuthenticateInfo)
+        .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
   }
 
-  public TenantInfo findByApiKey(final String apiKey) {
-    return tenantRepository
-        .findByApiKey(apiKey)
-        .map(tenantConverter::toTenantInfo)
-        .orElseThrow(() -> new RuntimeException("Tenant Not Found"));
+  public TenantAuthenticateInfo getAuthenticateInfoById(final String id) {
+    return this.tenantRepository
+        .findById(id)
+        .filter(t -> !t.isDeleted())
+        .map(this.tenantConverter::toTenantAuthenticateInfo)
+        .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+  }
+
+  private void applyNewPassword(final Tenant tenant, final String rawPassword) {
+    final String salt = RandomStringUtils.secure().nextAlphanumeric(SALT_LENGTH);
+    tenant.setSalt(salt);
+    tenant.setPassword(DigestUtils.sha256Hex(salt + rawPassword));
   }
 }

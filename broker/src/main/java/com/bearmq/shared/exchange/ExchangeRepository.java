@@ -12,4 +12,7 @@ public interface ExchangeRepository extends JpaRepository<Exchange, String> {
 
   @Query("from Exchange e where e.vhost.id = :vhostId")
   List<Exchange> findListByVhostId(String vhostId);
+
+  @Query("select count(e) from Exchange e where e.deleted = false")
+  long countActiveGlobal();
 }

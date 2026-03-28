@@ -26,10 +26,20 @@ logging:
 
 bearmq:
   domain: localhost:6667
+  security:
+    jwt:
+      secret: "${BEARMQ_SECURITY_JWT_SECRET:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
+      access-token-expiration-minutes: 30
+      refresh-token-expiration-days: 7
+    cors:
+      allowed-origins:
+        - "http://localhost:4200"
+        - "http://127.0.0.1:4200"
   server:
     broker:
       port: 6667
       backlog: 1024
+      dequeue-wait-ms: 500
     metrics:
       enabled: false
       port: 6668

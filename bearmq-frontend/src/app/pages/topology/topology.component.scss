@@ -1,0 +1,32 @@
+.topology-editor {
+  font-size: 0.8rem;
+  line-height: 1.65;
+  resize: vertical;
+  min-height: 300px;
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+.schema-dl {
+  dt {
+    font-size: 0.78rem;
+    margin-top: 0.6rem;
+    margin-bottom: 0.1rem;
+  }
+
+  dd {
+    font-size: 0.78rem;
+    color: var(--bs-secondary-color);
+    margin-bottom: 0;
+    margin-left: 0.5rem;
+  }
+}
+
+.accordion-button::after {
+  margin-left: auto;
+}
+
+.accordion-button:focus {
+  box-shadow: none;
+}

@@ -1,0 +1,18 @@
+.auth-page {
+  background: radial-gradient(
+    ellipse 120% 80% at 50% -20%,
+    rgba(13, 110, 253, 0.12),
+    transparent
+  );
+}
+
+.auth-card {
+  border-radius: 1rem;
+}
+
+.login-brand-logo {
+  width: 190px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
