@@ -151,7 +151,7 @@
         <repository>
             <id>repsy</id>
             <name>My Private Maven Repository on Repsy</name>
-            <url>https://repo.repsy.io/mvn/nuricanozturk/bearmq-spring-client</url>
+            <url>https://repo.nuricanozturk.com/bearmq-spring-client</url>
         </repository>
     </distributionManagement>
 </project>
