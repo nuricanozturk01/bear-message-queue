@@ -110,15 +110,15 @@ public final class Binding {
 
   @Override
   public boolean equals(final Object o) {
-    if (!(o instanceof Binding b)) {
+    if (!(o instanceof final Binding b)) {
       return false;
     }
 
-    return Objects.equals(id, b.id);
+    return Objects.equals(this.id, b.id);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id);
+    return Objects.hash(this.id);
   }
 }

@@ -1,13 +1,12 @@
 package com.bearmq.api.tenant.dto;
 
-import com.bearmq.api.tenant.TenantStatus;
+import com.bearmq.shared.tenant.TenantRole;
+import com.bearmq.shared.tenant.TenantStatus;
 
 public record TenantAuthenticateInfo(
     String id,
-    String fullName,
-    String email,
     String username,
     String password,
     String salt,
-    String apiKey,
-    TenantStatus status) {}
+    TenantStatus status,
+    TenantRole role) {}

@@ -1,0 +1,212 @@
+<div class="topology">
+
+  <div class="page-header">
+    <h1 class="mb-1">Topology</h1>
+    <p class="mb-0">
+      Define queues, exchanges and bindings for a virtual host with JSON.
+      The broker merges new definitions idempotently — existing objects are not removed.
+    </p>
+  </div>
+
+  <!-- No instances yet: prerequisite banner -->
+  @if (!loadError() && vhosts().length === 0) {
+    <div class="card border-0 p-5 text-center">
+      <i class="bi bi-diagram-3 mb-3 text-body-secondary" style="font-size:3rem"></i>
+      <h2 class="h5 fw-semibold mb-2">No instances found</h2>
+      <p class="text-body-secondary mb-4">
+        You need at least one instance (virtual host) before you can apply a topology.
+      </p>
+      <a routerLink="/instances" class="btn btn-primary mx-auto px-5">
+        <i class="bi bi-plus-lg me-2"></i>Create an instance
+      </a>
+    </div>
+  }
+
+  @if (vhosts().length > 0) {
+    <!-- align-items-start prevents the editor card from stretching when the
+         right-column accordion expands, which would push content down -->
+    <div class="row g-4 align-items-start">
+
+      <!-- Left: editor -->
+      <div class="col-12 col-lg-7">
+        <div class="card">
+          <div class="card-body p-4">
+
+            <!-- Vhost selector -->
+            <div class="mb-4">
+              <label class="form-label fw-semibold" for="vhost-select">
+                <i class="bi bi-server me-2 text-body-secondary"></i>Target instance
+              </label>
+              <select
+                id="vhost-select"
+                class="form-select"
+                [ngModel]="selectedVhostName()"
+                (ngModelChange)="onSelectVhost($event)"
+              >
+                @for (v of vhosts(); track v.id) {
+                  <option [value]="v.name">{{ v.name }}</option>
+                }
+              </select>
+            </div>
+
+            <!-- JSON editor -->
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="json-payload">
+                <i class="bi bi-braces me-2 text-body-secondary"></i>Topology JSON
+              </label>
+              <textarea
+                id="json-payload"
+                class="form-control topology-editor font-monospace"
+                [class.is-invalid]="jsonError()"
+                [ngModel]="jsonPayload()"
+                (ngModelChange)="jsonPayload.set($event); jsonError.set(null)"
+                rows="18"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder="Paste or edit your topology JSON…"
+              ></textarea>
+              @if (jsonError()) {
+                <div class="invalid-feedback d-block">
+                  <i class="bi bi-exclamation-triangle me-1"></i>{{ jsonError() }}
+                </div>
+              }
+            </div>
+
+            <button
+              type="button"
+              class="btn btn-primary px-5"
+              (click)="submit()"
+              [disabled]="submitting()"
+            >
+              @if (submitting()) {
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                Applying…
+              } @else {
+                <i class="bi bi-cloud-arrow-up me-2"></i>Apply topology
+              }
+            </button>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: schema reference -->
+      <div class="col-12 col-lg-5">
+        <div class="card">
+          <div class="card-body p-4">
+            <h2 class="h6 fw-semibold mb-3 d-flex align-items-center gap-2">
+              <i class="bi bi-info-circle text-body-secondary"></i>Schema reference
+            </h2>
+
+            <div class="accordion accordion-flush" id="schemaAccordion">
+
+              <div class="accordion-item border-bottom">
+                <h3 class="accordion-header">
+                  <button class="accordion-button collapsed py-2 px-0 bg-transparent"
+                          type="button" data-bs-toggle="collapse"
+                          data-bs-target="#schema-root">
+                    Root fields
+                  </button>
+                </h3>
+                <div id="schema-root" class="accordion-collapse collapse">
+                  <div class="accordion-body px-0 pb-3">
+                    <dl class="schema-dl mb-0">
+                      <dt><code>vhost</code> <span class="badge text-bg-danger ms-1">required</span></dt>
+                      <dd>Virtual host name (from Instances page)</dd>
+                      <dt><code>schemaVersion</code></dt>
+                      <dd>Always <code>1</code></dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item border-bottom">
+                <h3 class="accordion-header">
+                  <button class="accordion-button collapsed py-2 px-0 bg-transparent"
+                          type="button" data-bs-toggle="collapse"
+                          data-bs-target="#schema-queues">
+                    queues[ ]
+                  </button>
+                </h3>
+                <div id="schema-queues" class="accordion-collapse collapse">
+                  <div class="accordion-body px-0 pb-3">
+                    <dl class="schema-dl mb-0">
+                      <dt><code>name</code> <span class="badge text-bg-danger ms-1">required</span></dt>
+                      <dd>Queue name</dd>
+                      <dt><code>durable</code></dt><dd><code>true</code> / <code>false</code></dd>
+                      <dt><code>exclusive</code></dt><dd>Single-consumer flag</dd>
+                      <dt><code>auto_delete</code></dt><dd>Delete when last consumer disconnects</dd>
+                      <dt><code>arguments</code></dt><dd>Extra settings as object</dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item border-bottom">
+                <h3 class="accordion-header">
+                  <button class="accordion-button collapsed py-2 px-0 bg-transparent"
+                          type="button" data-bs-toggle="collapse"
+                          data-bs-target="#schema-exchanges">
+                    exchanges[ ]
+                  </button>
+                </h3>
+                <div id="schema-exchanges" class="accordion-collapse collapse">
+                  <div class="accordion-body px-0 pb-3">
+                    <dl class="schema-dl mb-0">
+                      <dt><code>name</code> <span class="badge text-bg-danger ms-1">required</span></dt>
+                      <dd>Exchange name</dd>
+                      <dt><code>type</code></dt>
+                      <dd><code>DIRECT</code> · <code>TOPIC</code> · <code>FANOUT</code></dd>
+                      <dt><code>durable</code></dt><dd>Survive broker restart</dd>
+                      <dt><code>internal</code></dt><dd>Only for exchange-to-exchange routing</dd>
+                      <dt><code>delayed</code></dt><dd>Delayed message plugin support</dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item">
+                <h3 class="accordion-header">
+                  <button class="accordion-button collapsed py-2 px-0 bg-transparent"
+                          type="button" data-bs-toggle="collapse"
+                          data-bs-target="#schema-bindings">
+                    bindings[ ]
+                  </button>
+                </h3>
+                <div id="schema-bindings" class="accordion-collapse collapse">
+                  <div class="accordion-body px-0 pb-3">
+                    <dl class="schema-dl mb-0">
+                      <dt><code>source</code> <span class="badge text-bg-danger ms-1">required</span></dt>
+                      <dd>Source exchange name</dd>
+                      <dt><code>destination</code></dt><dd>Queue or exchange name</dd>
+                      <dt><code>destination_type</code></dt><dd><code>QUEUE</code> or <code>EXCHANGE</code></dd>
+                      <dt><code>routing_key</code></dt><dd>Routing pattern (e.g. <code>#</code>, <code>orders.*</code>)</dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /accordion -->
+          </div>
+        </div>
+
+        <!-- Workflow hint -->
+        <div class="card mt-3">
+          <div class="card-body p-4">
+            <h2 class="h6 fw-semibold mb-3 d-flex align-items-center gap-2">
+              <i class="bi bi-lightbulb text-warning"></i>How it works
+            </h2>
+            <ol class="small mb-0 text-body-secondary ps-3">
+              <li class="mb-2">Create an <a routerLink="/instances">instance</a> (virtual host)</li>
+              <li class="mb-2">Select it in the dropdown above</li>
+              <li class="mb-2">Edit the JSON with your queues, exchanges and bindings</li>
+              <li>Click <strong>Apply topology</strong> — definitions are merged, not replaced</li>
+            </ol>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  }
+
+</div>

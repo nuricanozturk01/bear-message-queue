@@ -3,14 +3,14 @@ package com.bearmq.server.broker.facade;
 import static com.bearmq.shared.binding.DestinationType.EXCHANGE;
 import static java.util.concurrent.ConcurrentHashMap.newKeySet;
 
-import com.bearmq.api.tenant.TenantService;
-import com.bearmq.api.tenant.dto.TenantInfo;
 import com.bearmq.server.broker.dto.Auth;
 import com.bearmq.server.broker.dto.Message;
 import com.bearmq.shared.binding.Binding;
 import com.bearmq.shared.binding.BindingService;
+import com.bearmq.shared.broker.Status;
 import com.bearmq.shared.queue.Queue;
 import com.bearmq.shared.queue.QueueService;
+import com.bearmq.shared.settings.MessagingApiKeyService;
 import com.bearmq.shared.vhost.VirtualHost;
 import com.bearmq.shared.vhost.VirtualHostService;
 import jakarta.annotation.PreDestroy;
@@ -30,87 +30,171 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
+@NamedInterface
 @SuppressWarnings("resource")
 public class BrokerServerFacade {
-  private static final int THREAD_WAIT_MS = 500;
+
   private final VirtualHostService virtualHostService;
   private final QueueService queueService;
   private final BindingService bindingService;
-  private final TenantService tenantService;
-
-  @Qualifier("thread.virtual")
+  private final MessagingApiKeyService messagingApiKeyService;
   private final ExecutorService virtualThreadPool;
-
-  @Value("${bearmq.broker.storage-dir:./data/queues}")
-  private String storageDir;
-
+  private final String storageDir;
+  private final int dequeueWaitMs;
   private final Map<String, ChronicleQueue> queueCache = new ConcurrentHashMap<>();
   private final Map<String, Set<String>> routes = new ConcurrentHashMap<>();
   private final Map<String, ExcerptTailer> consumerTailers = new ConcurrentHashMap<>();
   private final Map<String, ReentrantLock> queueLocks = new ConcurrentHashMap<>();
   private final Map<String, Set<String>> exchangeToExchanges = new ConcurrentHashMap<>();
 
+  public BrokerServerFacade(
+      final VirtualHostService virtualHostService,
+      final QueueService queueService,
+      final BindingService bindingService,
+      final MessagingApiKeyService messagingApiKeyService,
+      @Qualifier("thread.virtual") final ExecutorService virtualThreadPool,
+      @Value("${bearmq.broker.storage-dir:./data/queues}") final String storageDir,
+      @Value("${bearmq.server.broker.dequeue-wait-ms:500}") final int dequeueWaitMs) {
+    this.virtualHostService = virtualHostService;
+    this.queueService = queueService;
+    this.bindingService = bindingService;
+    this.messagingApiKeyService = messagingApiKeyService;
+    this.virtualThreadPool = virtualThreadPool;
+    this.storageDir = storageDir;
+    this.dequeueWaitMs = dequeueWaitMs;
+  }
+
   public void loadQueues() {
-    final List<VirtualHost> vhosts = virtualHostService.findAll();
+    final var vhosts = this.virtualHostService.findAll();
 
-    for (final VirtualHost vhost : vhosts) {
-      final List<Queue> queues = queueService.findAllByVhostId(vhost.getId());
-      final List<Binding> bindings = bindingService.findAllByVhostId(vhost.getId());
+    for (final var vhost : vhosts) {
+      if (vhost.isDeleted() || vhost.getStatus() != Status.ACTIVE) {
+        continue;
+      }
+      final var queues =
+          this.queueService.findAllByVhostId(vhost.getId()).stream()
+              .filter(q -> !q.isDeleted())
+              .toList();
+      final var bindings =
+          this.bindingService.findAllByVhostId(vhost.getId()).stream()
+              .filter(b -> !b.isDeleted())
+              .toList();
 
-      prepareAndUpQueues(vhost, queues, bindings);
+      this.prepareAndUpQueues(vhost, queues, bindings);
     }
+  }
+
+  public void reloadVhostRuntime(final String vhostId) {
+    this.unloadVhost(vhostId);
+    this.loadVhostRuntime(vhostId);
+  }
+
+  public void loadVhostRuntime(final String vhostId) {
+    final VirtualHost vhost = this.virtualHostService.requireEntityById(vhostId);
+    if (vhost.getStatus() != Status.ACTIVE) {
+      return;
+    }
+    final var queues =
+        this.queueService.findAllByVhostId(vhostId).stream().filter(q -> !q.isDeleted()).toList();
+    final var bindings =
+        this.bindingService.findAllByVhostId(vhostId).stream().filter(b -> !b.isDeleted()).toList();
+    this.prepareAndUpQueues(vhost, queues, bindings);
   }
 
   public void prepareAndUpQueues(
       final VirtualHost vhost, final List<Queue> queues, final List<Binding> bindings) {
     final String vhostId = vhost.getId();
 
-    prepareQueues(vhost.getId(), queues);
+    this.prepareQueues(vhostId, queues);
 
-    for (final Binding binding : bindings) {
-      final String sourceExchangeName = binding.getSourceExchangeRef().getName();
-      final String sourceExchangeKey = exchangeKey(vhostId, sourceExchangeName);
+    for (final var binding : bindings) {
+      if (binding.isDeleted()) {
+        continue;
+      }
+      final var sourceExchangeName = binding.getSourceExchangeRef().getName();
+      final var sourceExchangeKey = this.exchangeKey(vhostId, sourceExchangeName);
 
       if (binding.getDestinationType() == EXCHANGE) {
         final String destinationExchangeName = binding.getDestinationExchangeRef().getName();
-        bindExchangeToExchange(vhostId, destinationExchangeName, sourceExchangeKey);
+        this.bindExchangeToExchange(vhostId, destinationExchangeName, sourceExchangeKey);
         continue;
       }
 
       final String queueName = binding.getDestinationQueueRef().getName();
-      routes.computeIfAbsent(sourceExchangeKey, k -> newKeySet()).add(queueName);
+      this.routes.computeIfAbsent(sourceExchangeKey, k -> newKeySet()).add(queueName);
     }
 
-    log.info("Queues opened: {}", queueCache.keySet());
-    log.info("Routes prepared: {}", routes.keySet());
+    log.info("Queues opened: {}", this.queueCache.keySet());
+    log.info("Routes prepared: {}", this.routes.keySet());
   }
 
   public Optional<byte[]> identifyOperationAndApply(final Message msg) {
-    final VirtualHost vhost = getVhost(msg);
+    final var vhost = this.getVhost(msg);
 
     return switch (msg.getOperation()) {
-      case ENQUEUE -> enqueue(vhost, msg);
-      case PUBLISH -> publish(vhost, msg);
-      case DEQUEUE -> dequeue(vhost, msg);
+      case ENQUEUE -> this.enqueue(vhost, msg);
+      case PUBLISH -> this.publish(vhost, msg);
+      case DEQUEUE -> this.dequeue(vhost, msg);
     };
+  }
+
+  public boolean isVhostLoaded(final String vhostId) {
+    final String prefix = vhostId + ":";
+    return this.queueCache.keySet().stream().anyMatch(k -> k.startsWith(prefix));
+  }
+
+  public Set<String> getLoadedQueueNames(final String vhostId) {
+    final String prefix = vhostId + ":";
+    final int prefixLen = prefix.length();
+    final Set<String> names = ConcurrentHashMap.newKeySet();
+    for (final String key : this.queueCache.keySet()) {
+      if (key.startsWith(prefix)) {
+        names.add(key.substring(prefixLen));
+      }
+    }
+    return names;
+  }
+
+  public void unloadVhost(final String vhostId) {
+    final String prefix = vhostId + ":";
+    this.queueCache
+        .entrySet()
+        .removeIf(
+            e -> {
+              if (e.getKey().startsWith(prefix)) {
+                try {
+                  e.getValue().close();
+                } catch (final Throwable ignore) {
+                }
+                return true;
+              }
+              return false;
+            });
+    this.consumerTailers.entrySet().removeIf(e -> e.getKey().startsWith(prefix));
+    this.queueLocks.entrySet().removeIf(e -> e.getKey().startsWith(prefix));
+    this.routes.entrySet().removeIf(e -> e.getKey().startsWith(prefix));
+    this.exchangeToExchanges.entrySet().removeIf(e -> e.getKey().startsWith(prefix));
+    for (final Set<String> destinations : this.exchangeToExchanges.values()) {
+      destinations.removeIf(d -> d.startsWith(prefix));
+    }
+    log.info("Broker runtime state unloaded for vhostId={}", vhostId);
   }
 
   private Optional<byte[]> enqueue(final VirtualHost vhost, final Message msg) {
     final String queueName = msg.getQueue();
-    final String key = queueKey(vhost.getId(), queueName);
-    final ChronicleQueue chronicleQueue = queueCache.get(key);
+    final String key = this.queueKey(vhost.getId(), queueName);
+    final ChronicleQueue chronicleQueue = this.queueCache.get(key);
 
     if (chronicleQueue == null) {
       throw new IllegalArgumentException("Queue not found: " + queueName);
@@ -130,9 +214,9 @@ public class BrokerServerFacade {
 
   private Optional<byte[]> publish(final VirtualHost vhost, final Message msg) {
     final String exchangeName = msg.getExchange();
-    final String key = exchangeKey(vhost.getId(), exchangeName);
+    final String key = this.exchangeKey(vhost.getId(), exchangeName);
 
-    final Set<String> queueNames = resolveQueuesFor(key);
+    final Set<String> queueNames = this.resolveQueuesFor(key);
 
     if (queueNames.isEmpty()) {
       return Optional.empty();
@@ -144,7 +228,8 @@ public class BrokerServerFacade {
     }
 
     for (final String queueName : queueNames) {
-      final ChronicleQueue chronicleQueue = queueCache.get(queueKey(vhost.getId(), queueName));
+      final ChronicleQueue chronicleQueue =
+          this.queueCache.get(this.queueKey(vhost.getId(), queueName));
 
       if (chronicleQueue == null) {
         log.warn("Queue missing for route: {}", queueName);
@@ -161,28 +246,26 @@ public class BrokerServerFacade {
 
   private Optional<byte[]> dequeue(final VirtualHost vhost, final Message msg) {
     final String queueName = msg.getQueue();
-    final String key = queueKey(vhost.getId(), queueName);
+    final String key = this.queueKey(vhost.getId(), queueName);
 
-    final ChronicleQueue chronicleQueue = queueCache.get(key);
+    final ChronicleQueue chronicleQueue = this.queueCache.get(key);
     if (chronicleQueue == null) {
       return Optional.empty();
     }
 
-    final ReentrantLock queueLock = queueLocks.get(key);
+    final ReentrantLock queueLock = this.queueLocks.get(key);
     if (queueLock == null) {
       return Optional.empty();
     }
 
-    // NOTE: Tailers are NOT thread-safe, sharing a Tailer between threads will lead to errors and
-    // unpredictable behaviour.
     final ExcerptTailer tailer =
-        consumerTailers.computeIfAbsent(key, k -> chronicleQueue.createTailer().toStart());
+        this.consumerTailers.computeIfAbsent(key, k -> chronicleQueue.createTailer().toStart());
 
     final Future<Optional<byte[]>> future =
-        virtualThreadPool.submit(() -> readInQueue(queueLock, tailer));
+        this.virtualThreadPool.submit(() -> this.readInQueue(queueLock, tailer));
 
     try {
-      return future.get(THREAD_WAIT_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
+      return future.get(this.dequeueWaitMs, java.util.concurrent.TimeUnit.MILLISECONDS);
     } catch (final TimeoutException e) {
       future.cancel(true);
       return Optional.empty();
@@ -223,12 +306,10 @@ public class BrokerServerFacade {
         continue;
       }
 
-      // ex → queues
-      final Set<String> qs = routes.getOrDefault(ex, Set.of());
+      final Set<String> qs = this.routes.getOrDefault(ex, Set.of());
       resultQueues.addAll(qs);
 
-      // ex → exchanges
-      final Set<String> next = exchangeToExchanges.getOrDefault(ex, Set.of());
+      final Set<String> next = this.exchangeToExchanges.getOrDefault(ex, Set.of());
       for (final String nx : next) {
         if (!visitedExchanges.contains(nx)) {
           q.add(nx);
@@ -240,19 +321,22 @@ public class BrokerServerFacade {
 
   private void prepareQueues(final String vhostId, final List<Queue> queues) {
     for (final Queue queue : queues) {
-      final String key = queueKey(vhostId, queue.getName());
+      if (queue.isDeleted()) {
+        continue;
+      }
+      final String key = this.queueKey(vhostId, queue.getName());
 
-      queueCache.computeIfAbsent(key, k -> openChronicle(resolveQueuePath(queue)));
-      queueLocks.computeIfAbsent(key, k -> new ReentrantLock(true));
+      this.queueCache.computeIfAbsent(key, k -> this.openChronicle(this.resolveQueuePath(queue)));
+      this.queueLocks.computeIfAbsent(key, k -> new ReentrantLock(true));
     }
   }
 
   private void bindExchangeToExchange(
       final String vhostId, final String destExchangeName, final String srcExchangeKey) {
-    final String destinationExchangeKey = exchangeKey(vhostId, destExchangeName);
+    final String destinationExchangeKey = this.exchangeKey(vhostId, destExchangeName);
 
-    if (!isCreateCycle(srcExchangeKey, destinationExchangeKey)) {
-      exchangeToExchanges
+    if (!this.isCreateCycle(srcExchangeKey, destinationExchangeKey)) {
+      this.exchangeToExchanges
           .computeIfAbsent(srcExchangeKey, k -> newKeySet())
           .add(destinationExchangeKey);
     }
@@ -266,7 +350,6 @@ public class BrokerServerFacade {
     final ArrayDeque<String> queue = new ArrayDeque<>();
     queue.add(destExchangeKey);
 
-    // BFS
     while (!queue.isEmpty()) {
       final String exchangeKey = queue.poll();
       if (!visited.add(exchangeKey)) {
@@ -277,7 +360,8 @@ public class BrokerServerFacade {
         return true;
       }
 
-      final Set<String> nextExchanges = exchangeToExchanges.getOrDefault(exchangeKey, Set.of());
+      final Set<String> nextExchanges =
+          this.exchangeToExchanges.getOrDefault(exchangeKey, Set.of());
       queue.addAll(nextExchanges);
     }
 
@@ -298,13 +382,20 @@ public class BrokerServerFacade {
   private VirtualHost getVhost(final Message msg) {
     final Auth auth = msg.getAuth();
 
-    // Security will fix later
-    final TenantInfo tenantInfo = tenantService.findByApiKey(decodeBase64(auth.getApiKey()));
+    final String apiKey = this.decodeBase64(auth.getApiKey());
+    if (!this.messagingApiKeyService.matchesMessagingApiKey(apiKey)) {
+      throw new RuntimeException("Invalid API key");
+    }
 
-    final String host = decodeBase64(auth.getVhost());
-    final String username = decodeBase64(auth.getUsername());
+    final String host = this.decodeBase64(auth.getVhost());
+    final String username = this.decodeBase64(auth.getUsername());
 
-    return virtualHostService.findByVhostInfo(tenantInfo.id(), host, username, auth.getPassword());
+    final VirtualHost vhost =
+        this.virtualHostService.findByVhostInfo(host, username, auth.getPassword());
+    if (vhost.getStatus() != Status.ACTIVE) {
+      throw new IllegalStateException("Virtual host is not active");
+    }
+    return vhost;
   }
 
   private String decodeBase64(final String val) {
@@ -313,7 +404,7 @@ public class BrokerServerFacade {
 
   private Path resolveQueuePath(final Queue q) {
     return Path.of(
-        storageDir + File.separator + q.getVhost().getId() + File.separator + q.getName());
+        this.storageDir + File.separator + q.getVhost().getId() + File.separator + q.getName());
   }
 
   private String queueKey(final String vhostId, final String queueName) {
@@ -326,19 +417,19 @@ public class BrokerServerFacade {
 
   @PreDestroy
   public void shutdown() {
-    queueCache
+    this.queueCache
         .values()
         .forEach(
             cq -> {
               try {
                 cq.close();
-              } catch (Throwable ignore) {
+              } catch (final Throwable ignore) {
               }
             });
-    consumerTailers.clear();
-    routes.clear();
-    exchangeToExchanges.clear();
-    queueCache.clear();
-    virtualThreadPool.shutdown();
+    this.consumerTailers.clear();
+    this.routes.clear();
+    this.exchangeToExchanges.clear();
+    this.queueCache.clear();
+    this.virtualThreadPool.shutdown();
   }
 }

@@ -14,10 +14,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class QueueService {
+
   private static final int DEFAULT_MESSAGE_SIZE = 1024;
   private static final int MIN_DIGITS = 8;
   private static final int MAX_DIGITS = 30;
@@ -27,10 +29,10 @@ public class QueueService {
   private final Random random;
 
   public List<Queue> createAll(final VirtualHost vhost, final List<QueueRequest> queues) {
-    final var queueObjects = queues.stream().map(brokerConverter::toQueue).toList();
+    final var queueObjects = queues.stream().map(this.brokerConverter::toQueue).toList();
 
     final Set<String> existingNames =
-        queueRepository.findAllByVhostId(vhost.getId()).stream()
+        this.queueRepository.findAllByVhostId(vhost.getId()).stream()
             .map(Queue::getName)
             .collect(Collectors.toSet());
 
@@ -42,21 +44,35 @@ public class QueueService {
       final String actualName =
           String.format(
               "queue-%s",
-              secure().next(random.nextInt(MIN_DIGITS, MAX_DIGITS), true, false).toLowerCase(ROOT));
+              secure()
+                  .next(this.random.nextInt(MIN_DIGITS, MAX_DIGITS), true, false)
+                  .toLowerCase(ROOT));
       queue.setId(UlidCreator.getUlid().toString());
       queue.setVhost(vhost);
       queue.setActualName(actualName);
       queue.setStatus(Status.ACTIVE);
-      // for now
       queue.setOverflowPolicy(OverflowPolicy.DEAD_LETTER_QUEUE);
       queue.setMaxMessage(DEFAULT_MESSAGE_SIZE);
     }
 
-    return queueRepository.saveAll(
+    return this.queueRepository.saveAll(
         queueObjects.stream().filter(q -> !existingNames.contains(q.getName())).toList());
   }
 
   public List<Queue> findAllByVhostId(final String vhostId) {
-    return queueRepository.findAllByVhostId(vhostId);
+    return this.queueRepository.findAllByVhostId(vhostId);
+  }
+
+  @Transactional
+  public void softDeleteById(final String vhostId, final String queueId) {
+    final Queue q =
+        this.queueRepository
+            .findById(queueId)
+            .orElseThrow(() -> new IllegalArgumentException("Queue not found"));
+    if (q.getVhost() == null || !vhostId.equals(q.getVhost().getId())) {
+      throw new IllegalArgumentException("Queue not in this virtual host");
+    }
+    q.setDeleted(true);
+    this.queueRepository.save(q);
   }
 }

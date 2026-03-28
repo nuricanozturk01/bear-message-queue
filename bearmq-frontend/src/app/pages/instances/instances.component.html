@@ -1,0 +1,144 @@
+<div class="instances">
+
+  <div class="page-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center
+              justify-content-between gap-3">
+    <div>
+      <h1 class="mb-1">Instances</h1>
+      <p class="mb-0">Each instance is an isolated virtual host for queues and exchanges.</p>
+    </div>
+    <button
+      type="button"
+      class="btn btn-primary px-4"
+      (click)="create()"
+      [disabled]="creating()"
+    >
+      @if (creating()) {
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+        Creating…
+      } @else {
+        <i class="bi bi-plus-lg me-2"></i>New instance
+      }
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status" style="width:2.5rem;height:2.5rem">
+        <span class="visually-hidden">Loading</span>
+      </div>
+    </div>
+  } @else {
+
+    <div class="d-md-none d-flex flex-column gap-2">
+      @for (v of items(); track v.id) {
+        <div class="card p-3" role="button" (click)="open(v)" style="cursor:pointer">
+          <div class="d-flex align-items-start gap-3">
+            <span class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                  style="width:40px;height:40px;background:rgba(var(--bearmq-primary-rgb),.1)">
+              <i class="bi bi-server" style="color:var(--bearmq-primary)"></i>
+            </span>
+            <div class="min-w-0 flex-grow-1">
+              <div class="fw-semibold text-truncate">{{ v.name }}</div>
+              <div class="small text-body-secondary text-truncate">{{ v.domain }}</div>
+              <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
+                <span class="small text-body-secondary">
+                  <i class="bi bi-clock me-1"></i>{{ v.createdAt | date:'dd MMM yyyy, HH:mm' }}
+                </span>
+                @if (v.status) {
+                  <span class="badge text-bg-secondary">{{ v.status }}</span>
+                }
+              </div>
+            </div>
+            <i class="bi bi-chevron-right text-body-secondary"></i>
+          </div>
+        </div>
+      } @empty {
+        <div class="card p-5 text-center">
+          <i class="bi bi-server text-body-secondary mb-3" style="font-size:2.5rem"></i>
+          <p class="text-body-secondary mb-3">No instances yet.</p>
+          <button type="button" class="btn btn-primary mx-auto px-4" (click)="create()">
+            <i class="bi bi-plus-lg me-2"></i>Create your first instance
+          </button>
+        </div>
+      }
+    </div>
+
+    @if (items().length > 0) {
+      <div class="d-none d-md-block card overflow-hidden">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col" class="d-none d-lg-table-cell">Domain</th>
+                <th scope="col" class="d-none d-md-table-cell">Created</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="text-end"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (v of items(); track v.id) {
+                <tr class="instance-row" role="button" tabindex="0"
+                    (click)="open(v)" (keydown.enter)="open(v)" style="cursor:pointer">
+                  <td>
+                    <div class="d-flex align-items-center gap-3">
+                      <span class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                            style="width:36px;height:36px;background:rgba(var(--bearmq-primary-rgb),.08)">
+                        <i class="bi bi-server" style="color:var(--bearmq-primary);font-size:.875rem"></i>
+                      </span>
+                      <div>
+                        <div class="fw-semibold">{{ v.name }}</div>
+                        <div class="small text-body-secondary d-lg-none text-truncate" style="max-width:180px">{{ v.domain }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="small text-body-secondary d-none d-lg-table-cell">{{ v.domain }}</td>
+                  <td class="small text-body-secondary d-none d-md-table-cell">
+                    {{ v.createdAt | date:'dd MMM yyyy, HH:mm' }}
+                  </td>
+                  <td>
+                    @if (v.status) {
+                      <span class="badge text-bg-secondary">{{ v.status }}</span>
+                    }
+                  </td>
+                  <td class="text-end text-body-secondary">
+                    <i class="bi bi-chevron-right"></i>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    @if (items().length === 0) {
+      <div class="card p-5 text-center">
+        <i class="bi bi-server text-body-secondary mb-3" style="font-size:3rem;opacity:.4"></i>
+        <h3 class="h5 fw-semibold mb-2">No instances yet</h3>
+        <p class="text-body-secondary mb-4 small">
+          Create a virtual host to start routing messages.
+        </p>
+        <div>
+          <button type="button" class="btn btn-primary px-4" (click)="create()">
+            <i class="bi bi-plus-lg me-2"></i>Create your first instance
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (totalPages() > 1) {
+      <nav class="d-flex justify-content-center align-items-center gap-3 mt-4" aria-label="Pagination">
+        <button type="button" class="btn btn-outline-secondary btn-sm px-3"
+                (click)="prev()" [disabled]="page() <= 0">
+          <i class="bi bi-chevron-left me-1"></i>Previous
+        </button>
+        <span class="small text-body-secondary">{{ page() + 1 }} / {{ totalPages() }}</span>
+        <button type="button" class="btn btn-outline-secondary btn-sm px-3"
+                (click)="next()" [disabled]="page() >= totalPages() - 1">
+          Next<i class="bi bi-chevron-right ms-1"></i>
+        </button>
+      </nav>
+    }
+  }
+</div>

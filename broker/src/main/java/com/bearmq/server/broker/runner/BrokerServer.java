@@ -14,11 +14,13 @@ import java.util.concurrent.ExecutorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Scope;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Component;
 
 @Component
 @Scope("prototype")
 @Slf4j
+@NamedInterface
 @RequiredArgsConstructor
 @SuppressWarnings("all")
 public class BrokerServer implements Closeable {
@@ -32,13 +34,13 @@ public class BrokerServer implements Closeable {
 
   public void run() {
     try {
-      loadCurrentQueues();
+      this.loadCurrentQueues();
 
-      log.warn("Broker server started on port " + serverSocket.getLocalPort());
+      log.warn("Broker server started on port " + this.serverSocket.getLocalPort());
 
       while (true) {
-        final var socket = serverSocket.accept();
-        executorService.execute(() -> handleClient(socket));
+        final var socket = this.serverSocket.accept();
+        this.executorService.execute(() -> this.handleClient(socket));
       }
     } catch (final IOException e) {
       Thread.currentThread().interrupt();
@@ -60,13 +62,13 @@ public class BrokerServer implements Closeable {
       int expectedIdx = 1;
 
       while (offset < messageLength) {
-        int chunkIdx = dataInputStream.readInt();
+        final int chunkIdx = dataInputStream.readInt();
 
         if (chunkIdx != expectedIdx) {
           throw new IOException("chunk order mismatch");
         }
 
-        int chunkLen = Math.min(DEFAULT_CHUNK_SIZE, messageLength - offset);
+        final int chunkLen = Math.min(DEFAULT_CHUNK_SIZE, messageLength - offset);
 
         dataInputStream.readFully(bytes, offset, chunkLen);
 
@@ -74,12 +76,12 @@ public class BrokerServer implements Closeable {
         expectedIdx++;
       }
 
-      final Message message = objectMapper.readValue(bytes, Message.class);
+      final Message message = this.objectMapper.readValue(bytes, Message.class);
 
-      final Optional<byte[]> body = brokerFacade.identifyOperationAndApply(message);
+      final Optional<byte[]> body = this.brokerFacade.identifyOperationAndApply(message);
 
       if (body.isPresent()) {
-        response(body.get(), dataInputStream, socket);
+        this.response(body.get(), dataInputStream, socket);
       }
 
     } catch (final Exception e) {
@@ -96,7 +98,7 @@ public class BrokerServer implements Closeable {
       int chunk = 0;
 
       while (offset < body.length) {
-        int chunkSize = Math.min(DEFAULT_CHUNK_SIZE, body.length - offset);
+        final int chunkSize = Math.min(DEFAULT_CHUNK_SIZE, body.length - offset);
         dos.writeInt(++chunk);
         dos.write(body, offset, chunkSize);
         offset += chunkSize;
@@ -110,12 +112,12 @@ public class BrokerServer implements Closeable {
   }
 
   public void loadCurrentQueues() {
-    brokerFacade.loadQueues();
+    this.brokerFacade.loadQueues();
   }
 
   @Override
   public void close() throws IOException {
-    executorService.shutdown();
-    serverSocket.close();
+    this.executorService.shutdown();
+    this.serverSocket.close();
   }
 }
