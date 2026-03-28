@@ -9,6 +9,8 @@ import com.bearmq.shared.binding.Binding;
 import com.bearmq.shared.binding.BindingService;
 import com.bearmq.shared.broker.Status;
 import com.bearmq.shared.broker.runtime.BrokerRuntimePort;
+import com.bearmq.shared.broker.runtime.QueuePeekResult;
+import com.bearmq.shared.broker.runtime.QueuePendingSnapshot;
 import com.bearmq.shared.queue.Queue;
 import com.bearmq.shared.queue.QueueService;
 import com.bearmq.shared.settings.MessagingApiKeyService;
@@ -22,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
@@ -183,6 +186,131 @@ public class BrokerServerFacade implements BrokerRuntimePort {
       }
     }
     return names;
+  }
+
+  private static final int PENDING_COUNT_CAP = 10_000;
+
+  private static final int PEEK_WINDOW_MAX = 5;
+
+  /** Safety cap: scanning entire huge backlogs for “last 5” would be too expensive. */
+  private static final int PEEK_SCAN_CAP = 50_000;
+
+  @Override
+  public QueuePeekResult peekPendingMessages(
+      final String vhostId, final String queueName, final int maxReturn) {
+
+    final int k = Math.min(Math.max(maxReturn, 1), PEEK_WINDOW_MAX);
+    final String key = this.queueKey(vhostId, queueName);
+    final ChronicleQueue cq = this.queueCache.get(key);
+    if (cq == null) {
+      return QueuePeekResult.EMPTY;
+    }
+    final ReentrantLock lock = this.queueLocks.get(key);
+    if (lock == null) {
+      return QueuePeekResult.EMPTY;
+    }
+    lock.lock();
+    final ExcerptTailer tailer = cq.createTailer();
+    try {
+      final Path queueDir = this.queueDataDir(vhostId, queueName);
+      this.restoreTailerPosition(tailer, queueDir, false);
+      final ArrayDeque<byte[]> window = new ArrayDeque<>(k + 1);
+      int scanned = 0;
+      while (scanned < PEEK_SCAN_CAP) {
+        final AtomicReference<byte[]> ref = new AtomicReference<>();
+        final boolean ok =
+            tailer.readBytes(
+                in -> {
+                  final byte[] buf = new byte[(int) in.readRemaining()];
+                  in.read(buf);
+                  ref.set(buf);
+                });
+        if (!ok || ref.get() == null) {
+          break;
+        }
+        window.addLast(ref.get());
+        if (window.size() > k) {
+          window.removeFirst();
+        }
+        scanned++;
+      }
+      boolean hitScanCap = false;
+      if (scanned == PEEK_SCAN_CAP) {
+        final AtomicReference<byte[]> probe = new AtomicReference<>();
+        final boolean more =
+            tailer.readBytes(
+                in -> {
+                  final byte[] buf = new byte[(int) in.readRemaining()];
+                  in.read(buf);
+                  probe.set(buf);
+                });
+        hitScanCap = more && probe.get() != null;
+      }
+      final boolean hasMorePending = scanned > k || hitScanCap;
+      return new QueuePeekResult(new ArrayList<>(window), hasMorePending);
+    } finally {
+      try {
+        tailer.close();
+      } catch (final Throwable ignore) {
+      }
+      lock.unlock();
+    }
+  }
+
+  @Override
+  public QueuePendingSnapshot pendingMessagesForQueue(
+      final String vhostId, final String queueName) {
+
+    final String key = this.queueKey(vhostId, queueName);
+    final ChronicleQueue cq = this.queueCache.get(key);
+    if (cq == null) {
+      return QueuePendingSnapshot.NOT_LOADED;
+    }
+    final ReentrantLock lock = this.queueLocks.get(key);
+    if (lock == null) {
+      return QueuePendingSnapshot.NOT_LOADED;
+    }
+    lock.lock();
+    final ExcerptTailer tailer = cq.createTailer();
+    try {
+      final Path queueDir = this.queueDataDir(vhostId, queueName);
+      this.restoreTailerPosition(tailer, queueDir, false);
+      long n = 0L;
+      while (n < PENDING_COUNT_CAP) {
+        final AtomicReference<byte[]> ref = new AtomicReference<>();
+        final boolean ok =
+            tailer.readBytes(
+                in -> {
+                  final byte[] buf = new byte[(int) in.readRemaining()];
+                  in.read(buf);
+                  ref.set(buf);
+                });
+        if (!ok || ref.get() == null) {
+          break;
+        }
+        n++;
+      }
+      if (n == PENDING_COUNT_CAP) {
+        final AtomicReference<byte[]> probe = new AtomicReference<>();
+        final boolean more =
+            tailer.readBytes(
+                in -> {
+                  final byte[] buf = new byte[(int) in.readRemaining()];
+                  in.read(buf);
+                  probe.set(buf);
+                });
+        if (more && probe.get() != null) {
+          return new QueuePendingSnapshot(PENDING_COUNT_CAP, true);
+        }
+      }
+      return new QueuePendingSnapshot(n, false);
+    } finally {
+      try {
+        tailer.close();
+      } catch (final Throwable ignore) {
+      }
+      lock.unlock();
+    }
   }
 
   public void unloadVhost(final String vhostId) {
@@ -348,7 +476,7 @@ public class BrokerServerFacade implements BrokerRuntimePort {
       lock.lock();
       final ExcerptTailer tailer = chronicleQueue.createTailer();
       try {
-        this.restoreTailerPosition(tailer, queueDir);
+        this.restoreTailerPosition(tailer, queueDir, true);
         final AtomicReference<byte[]> responseBody = new AtomicReference<>();
 
         final boolean ok =
@@ -386,7 +514,13 @@ public class BrokerServerFacade implements BrokerRuntimePort {
     return Path.of(this.storageDir + File.separator + vhostId + File.separator + queueName);
   }
 
-  private void restoreTailerPosition(final ExcerptTailer tailer, final Path queueDir) {
+  /**
+   * @param fixSidecarOnFailure when {@code true}, normalize and persist consumer index sidecar on
+   *     EOF/stale index or parse errors (dequeue path). When {@code false}, only adjust in-memory
+   *     tailer position — metrics probes must not rewrite {@code .bearmq-consumer-index}.
+   */
+  private void restoreTailerPosition(
+      final ExcerptTailer tailer, final Path queueDir, final boolean fixSidecarOnFailure) {
 
     try {
       final OptionalLong idx = this.readConsumerIndex(queueDir);
@@ -402,13 +536,17 @@ public class BrokerServerFacade implements BrokerRuntimePort {
       tailer.toStart();
       if (!tailer.moveToIndex(idx.getAsLong())) {
         tailer.toEnd();
-        this.persistConsumerIndex(queueDir, tailer.index());
+        if (fixSidecarOnFailure) {
+          this.persistConsumerIndex(queueDir, tailer.index());
+        }
         log.debug("BearMQ: consumer offset normalized for {} (EOF or stale index)", queueDir);
       }
     } catch (final Exception e) {
       log.warn("BearMQ: could not restore consumer index for {}, reading from start", queueDir, e);
       tailer.toStart();
-      this.persistConsumerIndex(queueDir, tailer.index());
+      if (fixSidecarOnFailure) {
+        this.persistConsumerIndex(queueDir, tailer.index());
+      }
     }
   }
 

@@ -3,19 +3,28 @@ package com.bearmq.api.facades;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+import com.bearmq.api.broker.dtos.read.QueuePeekResponseDto;
 import com.bearmq.api.broker.dtos.read.QueueSummaryDto;
 import com.bearmq.api.broker.mapper.BrokerReadMapper;
 import com.bearmq.shared.binding.BindingRepository;
 import com.bearmq.shared.broker.Status;
+import com.bearmq.shared.broker.runtime.BrokerRuntimePort;
+import com.bearmq.shared.broker.runtime.QueuePeekResult;
 import com.bearmq.shared.exchange.ExchangeRepository;
 import com.bearmq.shared.queue.Queue;
 import com.bearmq.shared.queue.QueueRepository;
 import com.bearmq.shared.vhost.VirtualHost;
 import com.bearmq.shared.vhost.VirtualHostRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,8 +39,18 @@ class BrokerReadFacadeTest {
   @Mock private ExchangeRepository exchangeRepository;
   @Mock private BindingRepository bindingRepository;
   @Mock private BrokerReadMapper brokerReadMapper;
+  @Mock private BrokerRuntimePort brokerRuntime;
+  @Mock private ObjectMapper objectMapper;
 
   @InjectMocks private BrokerReadFacade brokerReadFacade;
+
+  @BeforeEach
+  void objectMapperDelegatesToRealParse() throws Exception {
+
+    lenient()
+        .when(this.objectMapper.readTree(any(byte[].class)))
+        .thenAnswer(inv -> new ObjectMapper().readTree((byte[]) inv.getArgument(0)));
+  }
 
   private static VirtualHost vhost(final String id) {
 
@@ -123,5 +142,34 @@ class BrokerReadFacadeTest {
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).name()).isEqualTo("active-queue");
+  }
+
+  @Test
+  void peekQueue_returnsParsedJsonAndDoesNotRequireMapperBeyondReadTree() {
+
+    final VirtualHost v = vhost("vhost1");
+    when(this.virtualHostRepository.findById("vhost1")).thenReturn(Optional.of(v));
+
+    final Queue q = new Queue();
+    q.setId("q1");
+    q.setName("jobs");
+    q.setDeleted(false);
+    q.setVhost(v);
+    when(this.queueRepository.findById("q1")).thenReturn(Optional.of(q));
+
+    when(this.brokerRuntime.getLoadedQueueNames("vhost1")).thenReturn(Set.of("jobs"));
+    when(this.brokerRuntime.peekPendingMessages(eq("vhost1"), eq("jobs"), eq(5)))
+        .thenReturn(
+            new QueuePeekResult(
+                List.of("{\"orderId\":42}".getBytes(StandardCharsets.UTF_8)), false));
+
+    final QueuePeekResponseDto out = this.brokerReadFacade.peekQueue("vhost1", "q1");
+
+    assertThat(out.runtimeLoaded()).isTrue();
+    assertThat(out.queueName()).isEqualTo("jobs");
+    assertThat(out.truncated()).isFalse();
+    assertThat(out.messages()).hasSize(1);
+    assertThat(out.messages().get(0).sequence()).isZero();
+    assertThat(out.messages().get(0).json().get("orderId").asInt()).isEqualTo(42);
   }
 }

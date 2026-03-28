@@ -74,7 +74,14 @@ public class MetricsService {
     final Set<String> loaded = this.brokerRuntime.getLoadedQueueNames(vhostId);
 
     final List<QueueMetricDto> queueMetrics =
-        queues.stream().map(q -> this.metricsDtoMapper.toQueueMetric(q, loaded)).toList();
+        queues.stream()
+            .map(
+                q ->
+                    this.metricsDtoMapper.toQueueMetric(
+                        q,
+                        loaded,
+                        this.brokerRuntime.pendingMessagesForQueue(vhostId, q.getName())))
+            .toList();
 
     return this.metricsDtoMapper.assembleVhostMetrics(
         vhost, vhostLoaded, exchangeCount, bindingCount, queueMetrics);

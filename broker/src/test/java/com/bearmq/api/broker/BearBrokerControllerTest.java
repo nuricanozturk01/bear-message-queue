@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.bearmq.api.auth.services.TenantContext;
 import com.bearmq.api.broker.controllers.BearBrokerController;
+import com.bearmq.api.broker.dtos.read.QueuePeekResponseDto;
 import com.bearmq.api.broker.dtos.read.QueueSummaryDto;
 import com.bearmq.api.common.mapper.ApiErrorResponseMapperImpl;
 import com.bearmq.api.facades.BrokerApiFacade;
@@ -97,6 +98,20 @@ class BearBrokerControllerTest {
                 .content("{\"status\":\"INACTIVE\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("INACTIVE"));
+  }
+
+  @Test
+  void peekQueue_returns200() throws Exception {
+    when(brokerReadFacade.peekQueue(eq("v1"), eq("q1")))
+        .thenReturn(new QueuePeekResponseDto(true, "my-q", false, List.of()));
+
+    mockMvc
+        .perform(get("/api/broker/vhost/v1/queues/q1/peek"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.runtimeLoaded").value(true))
+        .andExpect(jsonPath("$.queueName").value("my-q"))
+        .andExpect(jsonPath("$.truncated").value(false))
+        .andExpect(jsonPath("$.messages").isArray());
   }
 
   @Test

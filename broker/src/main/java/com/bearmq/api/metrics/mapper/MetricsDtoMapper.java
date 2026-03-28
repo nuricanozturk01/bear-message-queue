@@ -8,11 +8,11 @@ import com.bearmq.api.metrics.dto.ResourceMetricsSource;
 import com.bearmq.api.metrics.dto.VhostMetricsAssembly;
 import com.bearmq.api.metrics.dto.VhostMetricsDto;
 import com.bearmq.shared.broker.Status;
+import com.bearmq.shared.broker.runtime.QueuePendingSnapshot;
 import com.bearmq.shared.queue.Queue;
 import com.bearmq.shared.vhost.VirtualHost;
 import java.util.List;
 import java.util.Set;
-import org.mapstruct.Context;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
@@ -74,13 +74,17 @@ public abstract class MetricsDtoMapper {
   @Mapping(target = "queues", source = "queues")
   protected abstract VhostMetricsDto toVhostMetrics(VhostMetricsAssembly a);
 
-  @Mapping(target = "id", source = "id")
-  @Mapping(target = "name", source = "name")
-  @Mapping(target = "status", source = ".", qualifiedByName = "queueStatusName")
-  @Mapping(target = "runtimeLoaded", expression = "java(loaded.contains(queue.getName()))")
-  public abstract QueueMetricDto toQueueMetric(Queue queue, @Context Set<String> loaded);
-
   protected abstract ResourceMetricsDto toResourceMetrics(ResourceMetricsSource source);
+
+  public QueueMetricDto toQueueMetric(
+      final Queue queue, final Set<String> loaded, final QueuePendingSnapshot pending) {
+
+    final boolean runtimeLoaded = loaded.contains(queue.getName());
+    final long approx = pending.notLoaded() ? -1L : pending.approximateCount();
+    final boolean capped = !pending.notLoaded() && pending.capped();
+    return new QueueMetricDto(
+        queue.getId(), queue.getName(), this.queueStatusName(queue), runtimeLoaded, approx, capped);
+  }
 
   @Named("queueStatusName")
   protected String queueStatusName(final Queue queue) {

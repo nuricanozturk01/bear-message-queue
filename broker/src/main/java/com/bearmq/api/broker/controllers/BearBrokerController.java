@@ -5,6 +5,7 @@ import com.bearmq.api.broker.dtos.BrokerRequest;
 import com.bearmq.api.broker.dtos.UpdateVhostStatusRequest;
 import com.bearmq.api.broker.dtos.read.BindingSummaryDto;
 import com.bearmq.api.broker.dtos.read.ExchangeSummaryDto;
+import com.bearmq.api.broker.dtos.read.QueuePeekResponseDto;
 import com.bearmq.api.broker.dtos.read.QueueSummaryDto;
 import com.bearmq.api.facades.BrokerApiFacade;
 import com.bearmq.api.facades.BrokerReadFacade;
@@ -80,6 +81,18 @@ public class BearBrokerController {
 
     this.tenantContext.requireTenant();
     return ResponseEntity.ok(this.brokerReadFacade.listQueues(vhostId));
+  }
+
+  /**
+   * Non-destructive peek: returns the five newest pending payloads (consumer tail), does not
+   * advance the Chronicle consumer index.
+   */
+  @GetMapping("/vhost/{vhostId}/queues/{queueId}/peek")
+  public ResponseEntity<QueuePeekResponseDto> peekQueue(
+      @PathVariable final String vhostId, @PathVariable final String queueId) {
+
+    this.tenantContext.requireTenant();
+    return ResponseEntity.ok(this.brokerReadFacade.peekQueue(vhostId, queueId));
   }
 
   @GetMapping("/vhost/{vhostId}/exchanges")
