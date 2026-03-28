@@ -16,21 +16,28 @@ import com.bearmq.shared.vhost.VirtualHost;
 import com.bearmq.shared.vhost.VirtualHostService;
 import jakarta.annotation.PreDestroy;
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
@@ -46,6 +53,9 @@ import org.springframework.stereotype.Component;
 @SuppressWarnings("resource")
 public class BrokerServerFacade implements BrokerRuntimePort {
 
+  /** Persisted Chronicle tailer index so dequeue does not replay after broker or vhost reload. */
+  private static final String CONSUMER_INDEX_FILENAME = ".bearmq-consumer-index";
+
   private final VirtualHostService virtualHostService;
   private final QueueService queueService;
   private final BindingService bindingService;
@@ -55,7 +65,6 @@ public class BrokerServerFacade implements BrokerRuntimePort {
   private final int dequeueWaitMs;
   private final Map<String, ChronicleQueue> queueCache = new ConcurrentHashMap<>();
   private final Map<String, Set<String>> routes = new ConcurrentHashMap<>();
-  private final Map<String, ExcerptTailer> consumerTailers = new ConcurrentHashMap<>();
   private final Map<String, ReentrantLock> queueLocks = new ConcurrentHashMap<>();
   private final Map<String, Set<String>> exchangeToExchanges = new ConcurrentHashMap<>();
 
@@ -192,7 +201,6 @@ public class BrokerServerFacade implements BrokerRuntimePort {
               }
               return false;
             });
-    this.consumerTailers.entrySet().removeIf(e -> e.getKey().startsWith(prefix));
     this.queueLocks.entrySet().removeIf(e -> e.getKey().startsWith(prefix));
     this.routes.entrySet().removeIf(e -> e.getKey().startsWith(prefix));
     this.exchangeToExchanges.entrySet().removeIf(e -> e.getKey().startsWith(prefix));
@@ -200,6 +208,31 @@ public class BrokerServerFacade implements BrokerRuntimePort {
       destinations.removeIf(d -> d.startsWith(prefix));
     }
     log.info("Broker runtime state unloaded for vhostId={}", vhostId);
+  }
+
+  /**
+   * Deletes Chronicle queue directories and consumer index files under {@code storageDir/vhostId}.
+   */
+  public void purgeVhostStorage(final String vhostId) {
+
+    final Path root = Path.of(this.storageDir + File.separator + vhostId);
+    if (!Files.isDirectory(root)) {
+      return;
+    }
+    try (Stream<Path> walk = Files.walk(root)) {
+      walk.sorted(Comparator.reverseOrder()).forEach(this::deletePathQuietly);
+    } catch (final IOException e) {
+      log.warn("BearMQ: failed to purge on-disk queue storage for vhostId={}", vhostId, e);
+    }
+  }
+
+  private void deletePathQuietly(final Path path) {
+
+    try {
+      Files.deleteIfExists(path);
+    } catch (final IOException e) {
+      log.debug("BearMQ: could not delete {}", path, e);
+    }
   }
 
   private Optional<byte[]> enqueue(final VirtualHost vhost, final Message msg) {
@@ -261,6 +294,7 @@ public class BrokerServerFacade implements BrokerRuntimePort {
 
     final String queueName = msg.getQueue();
     final String key = this.queueKey(vhost.getId(), queueName);
+    final Path queueDir = this.queueDataDir(vhost.getId(), queueName);
 
     final ChronicleQueue chronicleQueue = this.queueCache.get(key);
     if (chronicleQueue == null) {
@@ -272,14 +306,18 @@ public class BrokerServerFacade implements BrokerRuntimePort {
       return Optional.empty();
     }
 
-    final ExcerptTailer tailer =
-        this.consumerTailers.computeIfAbsent(key, k -> chronicleQueue.createTailer().toStart());
-
+    /*
+     * Chronicle ExcerptTailer is single-threaded: it must be created, positioned, read, and closed
+     * on the same thread. The previous pattern (tailer from computeIfAbsent on the TCP thread +
+     * readInQueue on a virtual thread) triggers ThreadingIllegalStateException on newer Chronicle.
+     */
+    final int budgetMs = Math.max(0, this.dequeueWaitMs);
     final Future<Optional<byte[]>> future =
-        this.virtualThreadPool.submit(() -> this.readInQueue(queueLock, tailer));
+        this.virtualThreadPool.submit(
+            () -> this.dequeueExclusive(chronicleQueue, queueLock, queueDir, budgetMs));
 
     try {
-      return future.get(this.dequeueWaitMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+      return future.get(budgetMs + 250L, TimeUnit.MILLISECONDS);
     } catch (final TimeoutException e) {
       future.cancel(true);
       return Optional.empty();
@@ -288,23 +326,148 @@ public class BrokerServerFacade implements BrokerRuntimePort {
     }
   }
 
-  private Optional<byte[]> readInQueue(final ReentrantLock lock, final ExcerptTailer tailer) {
+  /**
+   * Long-poll up to {@code waitBudgetMs}: try read under queue lock, then release lock and park
+   * before retrying. Empty queues no longer return instantly (avoids tight client poll loops). Lock
+   * is never held during {@link LockSupport#parkNanos} so producers are not blocked.
+   */
+  private Optional<byte[]> dequeueExclusive(
+      final ChronicleQueue chronicleQueue,
+      final ReentrantLock lock,
+      final Path queueDir,
+      final int waitBudgetMs) {
 
-    lock.lock();
+    final long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(waitBudgetMs);
+    final long parkChunkNanos = TimeUnit.MILLISECONDS.toNanos(50L);
+
+    while (System.nanoTime() < deadlineNanos) {
+      if (Thread.currentThread().isInterrupted()) {
+        return Optional.empty();
+      }
+
+      lock.lock();
+      final ExcerptTailer tailer = chronicleQueue.createTailer();
+      try {
+        this.restoreTailerPosition(tailer, queueDir);
+        final AtomicReference<byte[]> responseBody = new AtomicReference<>();
+
+        final boolean ok =
+            tailer.readBytes(
+                in -> {
+                  final byte[] buf = new byte[(int) in.readRemaining()];
+                  in.read(buf);
+                  responseBody.set(buf);
+                });
+
+        if (ok && responseBody.get() != null) {
+          this.persistConsumerIndexAfterSuccessfulRead(chronicleQueue, tailer, queueDir);
+          return Optional.of(responseBody.get());
+        }
+      } finally {
+        try {
+          tailer.close();
+        } catch (final Throwable ignore) {
+        }
+        lock.unlock();
+      }
+
+      final long remaining = deadlineNanos - System.nanoTime();
+      if (remaining <= 0) {
+        break;
+      }
+      LockSupport.parkNanos(Math.min(parkChunkNanos, remaining));
+    }
+
+    return Optional.empty();
+  }
+
+  private Path queueDataDir(final String vhostId, final String queueName) {
+
+    return Path.of(this.storageDir + File.separator + vhostId + File.separator + queueName);
+  }
+
+  private void restoreTailerPosition(final ExcerptTailer tailer, final Path queueDir) {
+
     try {
-      final AtomicReference<byte[]> responseBody = new AtomicReference<>();
+      final OptionalLong idx = this.readConsumerIndex(queueDir);
+      if (idx.isEmpty()) {
+        tailer.toStart();
+        return;
+      }
+      /*
+       * After reading the last excerpt, a persisted tailer.index() often points at the *next* slot,
+       * which does not exist yet — moveToIndex then correctly returns false (Chronicle #683).
+       * Use toEnd() for that case, not toStart() (which would redeliver the whole queue).
+       */
+      tailer.toStart();
+      if (!tailer.moveToIndex(idx.getAsLong())) {
+        tailer.toEnd();
+        this.persistConsumerIndex(queueDir, tailer.index());
+        log.debug("BearMQ: consumer offset normalized for {} (EOF or stale index)", queueDir);
+      }
+    } catch (final Exception e) {
+      log.warn("BearMQ: could not restore consumer index for {}, reading from start", queueDir, e);
+      tailer.toStart();
+      this.persistConsumerIndex(queueDir, tailer.index());
+    }
+  }
 
-      final boolean ok =
-          tailer.readBytes(
-              in -> {
-                final byte[] buf = new byte[(int) in.readRemaining()];
-                in.read(buf);
-                responseBody.set(buf);
-              });
+  /**
+   * Never persist a "next" index that does not exist yet (typical after consuming the last
+   * message), or every restart/long-poll will fail moveToIndex and spam logs.
+   */
+  private void persistConsumerIndexAfterSuccessfulRead(
+      final ChronicleQueue queue, final ExcerptTailer tailer, final Path queueDir) {
 
-      return ok && responseBody.get() != null ? Optional.of(responseBody.get()) : Optional.empty();
+    long next = tailer.index();
+    final ExcerptTailer probe = queue.createTailer();
+    try {
+      probe.toStart();
+      if (!probe.moveToIndex(next)) {
+        tailer.toEnd();
+        next = tailer.index();
+      }
     } finally {
-      lock.unlock();
+      try {
+        probe.close();
+      } catch (final Throwable ignore) {
+      }
+    }
+    this.persistConsumerIndex(queueDir, next);
+  }
+
+  private OptionalLong readConsumerIndex(final Path queueDir) {
+
+    final Path file = queueDir.resolve(CONSUMER_INDEX_FILENAME);
+    if (!Files.isRegularFile(file)) {
+      return OptionalLong.empty();
+    }
+    try {
+      final String s = Files.readString(file, StandardCharsets.UTF_8).trim();
+      if (s.isEmpty()) {
+        return OptionalLong.empty();
+      }
+      return OptionalLong.of(Long.parseLong(s));
+    } catch (final Exception e) {
+      log.debug("BearMQ: no valid consumer index at {}", file, e);
+      return OptionalLong.empty();
+    }
+  }
+
+  private void persistConsumerIndex(final Path queueDir, final long index) {
+
+    try {
+      Files.createDirectories(queueDir);
+      Files.writeString(
+          queueDir.resolve(CONSUMER_INDEX_FILENAME),
+          Long.toString(index),
+          StandardCharsets.UTF_8,
+          StandardOpenOption.CREATE,
+          StandardOpenOption.TRUNCATE_EXISTING,
+          StandardOpenOption.SYNC);
+    } catch (final Exception e) {
+      log.error(
+          "BearMQ: failed to persist consumer index for {} (restart may redeliver)", queueDir, e);
     }
   }
 
@@ -451,7 +614,6 @@ public class BrokerServerFacade implements BrokerRuntimePort {
               } catch (final Throwable ignore) {
               }
             });
-    this.consumerTailers.clear();
     this.routes.clear();
     this.exchangeToExchanges.clear();
     this.queueCache.clear();

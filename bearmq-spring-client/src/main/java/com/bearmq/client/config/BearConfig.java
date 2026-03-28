@@ -9,6 +9,8 @@ public class BearConfig {
   private static final int REST_PORT = 3333;
   private static final int DEFAULT_INITIAL_DELAY = 500;
   private static final int DEFAULT_POLLING_DELAY = 250;
+  /** Prevents scheduleWithFixedDelay(…, 0, 0) busy-loop when the queue is hot or broker returns fast. */
+  private static final int MIN_POLL_PERIOD_MS = 50;
 
   private String username;
   private String password;
@@ -24,7 +26,7 @@ public class BearConfig {
   }
 
   public void setInitialDelayMs(final int initialDelayMs) {
-    this.initialDelayMs = initialDelayMs;
+    this.initialDelayMs = Math.max(0, initialDelayMs);
   }
 
   public int getPeriodMs() {
@@ -32,7 +34,11 @@ public class BearConfig {
   }
 
   public void setPeriodMs(final int periodMs) {
-    this.periodMs = periodMs;
+    if (periodMs <= 0) {
+      this.periodMs = DEFAULT_POLLING_DELAY;
+    } else {
+      this.periodMs = Math.max(periodMs, MIN_POLL_PERIOD_MS);
+    }
   }
 
   public String getApiKey() {

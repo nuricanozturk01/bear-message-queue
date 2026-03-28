@@ -1,5 +1,6 @@
 package com.bearmq.server.broker.runner;
 
+import com.bearmq.server.broker.dto.BearOperation;
 import com.bearmq.server.broker.dto.Message;
 import com.bearmq.server.broker.facade.BrokerServerFacade;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -82,8 +83,14 @@ public class BrokerServer implements Closeable {
 
       final Optional<byte[]> body = this.brokerFacade.identifyOperationAndApply(message);
 
-      if (body.isPresent()) {
-        this.response(body.get(), dataInputStream, socket);
+      if (message.getOperation() == BearOperation.DEQUEUE) {
+        if (body.isPresent()) {
+          this.response(body.get(), socket);
+        } else {
+          this.responseEmpty(socket);
+        }
+      } else if (body.isPresent()) {
+        this.response(body.get(), socket);
       }
 
     } catch (final Exception e) {
@@ -92,7 +99,16 @@ public class BrokerServer implements Closeable {
     }
   }
 
-  private void response(final byte[] body, final DataInputStream dis, final Socket socket) {
+  /** Empty dequeue: client expects a framed length &le; 0 (see {@code BearMessagingTemplate}). */
+  private void responseEmpty(final Socket socket) throws IOException {
+
+    try (final DataOutputStream dos = new DataOutputStream(socket.getOutputStream())) {
+      dos.writeInt(0);
+      dos.flush();
+    }
+  }
+
+  private void response(final byte[] body, final Socket socket) throws IOException {
 
     try (final DataOutputStream dos = new DataOutputStream(socket.getOutputStream())) {
       dos.writeInt(body.length);

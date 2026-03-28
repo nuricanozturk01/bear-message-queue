@@ -3,7 +3,9 @@ package com.bearmq.shared.exchange;
 import java.util.List;
 import java.util.Set;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -15,4 +17,8 @@ public interface ExchangeRepository extends JpaRepository<Exchange, String> {
 
   @Query("select count(e) from Exchange e where e.deleted = false")
   long countActiveGlobal();
+
+  @Modifying
+  @Query("update Exchange e set e.deleted = true where e.vhost.id = :vhostId and e.deleted = false")
+  int softDeleteAllForVhost(@Param("vhostId") String vhostId);
 }

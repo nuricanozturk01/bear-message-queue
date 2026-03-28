@@ -18,18 +18,14 @@
 ## Contents
 
 1. [What it is](#what-it-is)
-2. [Quick start (Docker)](#quick-start-docker)
-3. [Run options](#run-options)
-4. [First login & usage](#first-login--usage)
+2. [Spring client for your app (Maven / Gradle)](#spring-client-for-your-app-maven--gradle)
+3. [Quick start (Docker)](#quick-start-docker)
+4. [Run options](#run-options)
 5. [Local development](#local-development)
 6. [Configuration](#configuration)
-7. [Repository layout](#repository-layout)
-8. [REST API cheat sheet](#rest-api-cheat-sheet)
-9. [Screenshots](#screenshots)
-10. [Video](#video)
-11. [Troubleshooting](#troubleshooting)
-12. [Roadmap](#roadmap)
-13. [License & support](#license--support)
+7. [Screenshots](#screenshots)
+8. [Video](#video)
+9. [License & support](#license--support)
 
 ---
 
@@ -38,6 +34,47 @@
 BearMQ is a **Spring Boot 3.5** application: **TCP** messaging (Chronicle Queue), **virtual host / exchange / queue / binding** topology, a **JWT**-protected **REST API**, and a bundled **Angular 21** UI. Code is split with Spring Modulith (`api`, `server`, `shared`). Storage is **file H2** or **PostgreSQL** with Flyway.
 
 ---
+
+## Spring client for your app (Maven / Gradle)
+
+If you build **producers or consumers** in Java/Kotlin, add **`bearmq-spring-client`** to your app **first** (then configure `bearmq:` in `application.yml` and use `@EnableBear`, `@BearListener`, `BearTemplate`, etc. — see [`demo/`](demo/)).
+
+### Maven
+
+In your **`pom.xml`**, register the repository and the dependency:
+
+```xml
+<repositories>
+  <repository>
+    <id>repsy</id>
+    <name>BearMQ client repository</name>
+    <url>https://repo.nuricanozturk.com/bearmq-spring-client</url>
+  </repository>
+</repositories>
+
+<dependencies>
+  <dependency>
+    <groupId>com.bearmq</groupId>
+    <artifactId>bearmq-spring-client</artifactId>
+    <version>0.0.1</version>
+  </dependency>
+</dependencies>
+```
+
+### Gradle (Kotlin DSL)
+
+```kotlin
+repositories {
+  maven {
+    name = "bearmq-client"
+    url = uri("https://repo.nuricanozturk.com/bearmq-spring-client")
+  }
+}
+
+dependencies {
+  implementation("com.bearmq:bearmq-spring-client:0.0.1")
+}
+```
 
 ## Quick start (Docker)
 
@@ -131,31 +168,6 @@ Default registry image: **`repo.repsy.io/nuricanozturk/bearmq/bearmq:26.03.3`** 
 
 ---
 
-## First login & usage
-
-1. Open http://localhost:3333 (or `SERVER_PORT`).
-2. Sign in as `admin` with the password you set or the one from the logs; change it under **Settings**.
-
-**Example: login and create a virtual host**
-
-```bash
-curl -s -X POST 'http://localhost:3333/api/auth/login' \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"<password>"}'
-```
-
-Then:
-
-```bash
-curl -s -X POST 'http://localhost:3333/api/broker/vhost' \
-  -H 'Authorization: Bearer <access_token>' \
-  -H 'Content-Type: application/json'
-```
-
-Use the **messaging API key** from the UI for TCP `AUTH`. Spring client samples live under [`demo/`](demo/).
-
----
-
 ## Local development
 
 **Needs:** Java 21, Maven 3.8+, Node 20+ (only if you run the Angular dev server separately), Docker optional.
@@ -166,7 +178,7 @@ Use the **messaging API key** from the UI for TCP `AUTH`. Spring client samples 
 
 The all-in-one Docker image embeds the Angular build into the broker JAR; `SpaFallbackFilter` serves `index.html` for client routes.
 
-Published Maven coordinates for `bearmq-spring-client` depend on your repository; point `pom.xml` at your server.
+**Consumer/producer apps:** add the client via [Spring client for your app](#spring-client-for-your-app-maven--gradle) above; clone + `mvn install` here is only for working on BearMQ itself.
 
 ---
 
@@ -182,39 +194,6 @@ Published Maven coordinates for `bearmq-spring-client` depend on your repository
 | `BEARMQ_ADMIN_INITIAL_PASSWORD` | First-run admin when DB is empty (min 6 chars if set) |
 | `BEARMQ_SECURITY_JWT_SECRET` | JWT signing secret (required in production) |
 | `H2_TCP_SERVER_ENABLED`, `H2_TCP_SERVER_PORT` | H2 TCP server (dev / tools) |
-
-Defaults and Chronicle JVM flags (`--add-opens` / `--add-exports`): [`broker/src/main/resources/application.yml`](broker/src/main/resources/application.yml).
-
-- Root [`Dockerfile`](Dockerfile): full stack (UI + broker).  
-- [`broker/Dockerfile`](broker/Dockerfile): broker JAR only.
-
----
-
-## Repository layout
-
-| Path | Role |
-|------|------|
-| [`broker/`](broker/) | Spring Boot: REST, TCP broker, Flyway, metrics |
-| [`bearmq-frontend/`](bearmq-frontend/) | Angular SPA |
-| [`bearmq-spring-client/`](bearmq-spring-client/) | `@EnableBear`, `BearTemplate`, listeners |
-| [`demo/`](demo/) | Sample producer / consumer |
-| [`media/`](media/) | Logo, architecture diagram, UI screenshots |
-
----
-
-## REST API cheat sheet
-
-| Area | Examples |
-|------|----------|
-| Auth | `POST /api/auth/login`, `POST /api/auth/refresh` |
-| Broker | `POST /api/broker` (topology); `GET/POST/PATCH/DELETE …/api/broker/vhost…` |
-| Metrics | `GET /api/metrics/*`, SSE resource stream |
-| Settings | `GET /api/settings/messaging-api-key`, `PUT /api/users/me/password` |
-| Admin | User CRUD, `POST /api/admin/messaging-api-key/rotate` |
-
-Exact paths: `broker/src/main/java/com/bearmq/api/`.
-
-**Migrations:** Flyway uses `classpath:db/migration/{vendor}` (`h2` or `postgresql`). Older DBs with different Flyway history may need a fresh schema or manual repair.
 
 ---
 
@@ -291,24 +270,6 @@ Exact paths: `broker/src/main/java/com/bearmq/api/`.
 [![BearMQ intro](https://img.youtube.com/vi/KRjMb-gj2uM/0.jpg)](https://www.youtube.com/watch?v=KRjMb-gj2uM)
 
 *Click the thumbnail to open the video on YouTube.*
-
----
-
-## Troubleshooting
-
-| Issue | What to check |
-|--------|----------------|
-| Port in use | `ss -tlnp \| grep -E ':3333\|:6667'` |
-| DB errors | Postgres running, `DB_URL` host (`bearmq-postgres` on Docker network vs `localhost` on host) |
-| No admin / login fails | Empty DB on first boot, password length if using env, `docker logs bearmq` |
-
----
-
-## Roadmap
-
-**Done (high level):** TCP broker, Spring client, JWT & roles, Flyway, metrics + SSE, Angular console, vhost lifecycle, global messaging API key, Modulith tests.
-
-**Open:** stronger durability, performance tuning / benchmarks, optional public self-service registration.
 
 ---
 

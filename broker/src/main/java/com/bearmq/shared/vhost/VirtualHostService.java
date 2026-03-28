@@ -4,10 +4,13 @@ import static java.lang.String.format;
 import static java.util.Locale.ROOT;
 import static org.apache.commons.lang3.RandomStringUtils.secure;
 
+import com.bearmq.shared.binding.BindingRepository;
 import com.bearmq.shared.broker.Status;
 import com.bearmq.shared.converter.BrokerConverter;
 import com.bearmq.shared.event.VirtualHostActivatedEvent;
 import com.bearmq.shared.event.VirtualHostDeletedEvent;
+import com.bearmq.shared.exchange.ExchangeRepository;
+import com.bearmq.shared.queue.QueueRepository;
 import com.bearmq.shared.tenant.Tenant;
 import com.bearmq.shared.tenant.TenantRepository;
 import com.bearmq.shared.tenant.dto.TenantInfo;
@@ -44,6 +47,9 @@ public class VirtualHostService {
   private final TenantRepository tenantRepository;
   private final Random random;
   private final ApplicationEventPublisher applicationEventPublisher;
+  private final BindingRepository bindingRepository;
+  private final QueueRepository queueRepository;
+  private final ExchangeRepository exchangeRepository;
 
   @Value("${bearmq.domain}")
   private String domain;
@@ -111,7 +117,7 @@ public class VirtualHostService {
           new VirtualHostActivatedEvent(vhostId, Instant.now()));
     } else {
       this.applicationEventPublisher.publishEvent(
-          new VirtualHostDeletedEvent(vhost.getTenant().getId(), vhostId, Instant.now()));
+          new VirtualHostDeletedEvent(vhost.getTenant().getId(), vhostId, Instant.now(), false));
       log.info(
           "AUDIT vhost_deleted tenantId={} virtualHostId={}", vhost.getTenant().getId(), vhostId);
     }
@@ -172,13 +178,16 @@ public class VirtualHostService {
     if (vhost.isDeleted()) {
       return;
     }
+    final String vhostId = vhost.getId();
+    this.bindingRepository.softDeleteAllForVhost(vhostId);
+    this.queueRepository.softDeleteAllForVhost(vhostId);
+    this.exchangeRepository.softDeleteAllForVhost(vhostId);
+
     vhost.setDeleted(true);
     this.repository.save(vhost);
     this.applicationEventPublisher.publishEvent(
-        new VirtualHostDeletedEvent(vhost.getTenant().getId(), vhost.getId(), Instant.now()));
+        new VirtualHostDeletedEvent(vhost.getTenant().getId(), vhostId, Instant.now(), true));
     log.info(
-        "AUDIT vhost_deleted tenantId={} virtualHostId={}",
-        vhost.getTenant().getId(),
-        vhost.getId());
+        "AUDIT vhost_deleted tenantId={} virtualHostId={}", vhost.getTenant().getId(), vhostId);
   }
 }

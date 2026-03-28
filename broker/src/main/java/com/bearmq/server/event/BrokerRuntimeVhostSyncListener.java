@@ -21,6 +21,9 @@ public class BrokerRuntimeVhostSyncListener {
 
     log.debug("Unloading runtime broker state for vhostId={}", event.virtualHostId());
     this.brokerServerFacade.unloadVhost(event.virtualHostId());
+    if (event.purgePersistentData()) {
+      this.brokerServerFacade.purgeVhostStorage(event.virtualHostId());
+    }
   }
 
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

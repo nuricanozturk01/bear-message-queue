@@ -27,13 +27,13 @@ public class BearerListenerContainer implements Closeable {
   public static final byte CARRIAGE_RETURN = 0x0D;
 
   private static final Logger LOGGER = LoggerFactory.getLogger(BearerListenerContainer.class);
-  private static final int SCHEDULED_THREAD_POOL_SIZE = 5;
+  private static final int SCHEDULED_THREAD_POOL_SIZE = 8;
 
   private final ObjectMapper objectMapper;
   private final BearConfig config;
   private final BearMessagingTemplate template;
-  private final ScheduledExecutorService executor;
   private final Map<String, List<Handler>> handlersByQueue;
+  private ScheduledExecutorService executor;
 
   public BearerListenerContainer(
       final ObjectMapper objectMapper,
@@ -43,7 +43,6 @@ public class BearerListenerContainer implements Closeable {
     this.template = template;
     this.config = config;
     this.handlersByQueue = new ConcurrentHashMap<>();
-    this.executor = Executors.newScheduledThreadPool(SCHEDULED_THREAD_POOL_SIZE);
   }
 
   public void register(final Map<String, List<Handler>> map) {
@@ -51,39 +50,46 @@ public class BearerListenerContainer implements Closeable {
   }
 
   public void start() {
-    for (final Map.Entry<String, List<Handler>> entry : handlersByQueue.entrySet()) {
-      final String key = entry.getKey();
-      final List<Handler> handlers = entry.getValue();
+    final int handlerCount =
+        this.handlersByQueue.values().stream().mapToInt(List::size).sum();
+    final int poolSize = Math.max(SCHEDULED_THREAD_POOL_SIZE, handlerCount);
+    this.executor = Executors.newScheduledThreadPool(poolSize);
 
-      final int initDelay = config.getInitialDelayMs();
-      final int period = config.getPeriodMs();
+    final int initDelay = this.config.getInitialDelayMs();
+    /* BearConfig already clamps period; keep a floor here for tests / manual bean wiring. */
+    final int period = Math.max(50, this.config.getPeriodMs());
 
-      executor.scheduleWithFixedDelay(() -> run(key, handlers), initDelay, period, MILLISECONDS);
+    for (final Map.Entry<String, List<Handler>> entry : this.handlersByQueue.entrySet()) {
+      final String queue = entry.getKey();
+      for (final Handler handler : entry.getValue()) {
+        this.executor.scheduleWithFixedDelay(
+            () -> this.runOne(queue, handler), initDelay, period, MILLISECONDS);
+      }
     }
   }
 
-  private void run(final String queue, final List<Handler> handlers) {
+  /**
+   * One poller per {@link BearListener} method so multiple consumers on the same queue (same or
+   * different JVMs) each call {@code receive} and compete for messages instead of one receive
+   * fanning out to every handler.
+   */
+  private void runOne(final String queue, final Handler handler) {
     try {
-      final Optional<byte[]> bytesOpt = template.receive(queue);
+      final Optional<byte[]> bytesOpt = this.template.receive(queue);
       if (bytesOpt.isEmpty()) {
         return;
       }
 
       final byte[] messageBody = bytesOpt.get();
+      final Method method = handler.method();
 
-      for (final Handler handler : handlers) {
-        final Method method = handler.method();
-
-        // No param. no need mapping. Actually no need listening. Only consume messages
-        if (method.getParameterCount() == 0) {
-          method.invoke(handler.bean());
-          continue;
-        }
-
-        // The first parameter must be the message object.
-        final Class<?> paramType = method.getParameterTypes()[0];
-        mapAndInvoke(messageBody, paramType, method, handler);
+      if (method.getParameterCount() == 0) {
+        method.invoke(handler.bean());
+        return;
       }
+
+      final Class<?> paramType = method.getParameterTypes()[0];
+      this.mapAndInvoke(messageBody, paramType, method, handler);
     } catch (final Exception e) {
       LOGGER.warn("Listener invoke failed for {}: {}", queue, e.toString());
     }
@@ -151,6 +157,8 @@ public class BearerListenerContainer implements Closeable {
 
   @Override
   public void close() {
-    executor.shutdown();
+    if (this.executor != null) {
+      this.executor.shutdown();
+    }
   }
 }
