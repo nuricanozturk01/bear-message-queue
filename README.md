@@ -84,7 +84,7 @@ docker run -d \
   --name bearmq \
   -p 3333:3333 \
   -p 6667:6667 \
-  repo.repsy.io/nuricanozturk/bearmq/bearmq:26.03.3
+  repo.repsy.io/nuricanozturk/bearmq/bearmq:26.03.0
 ```
 - **Web UI & API:** http://localhost:3333  
 - **TCP broker:** `localhost:6667`
@@ -112,7 +112,7 @@ docker run -d \
   -p 6667:6667 \
   -e BEARMQ_ADMIN_INITIAL_PASSWORD=Test123 \
   -v bearmq-data:/app/data \
-  repo.repsy.io/nuricanozturk/bearmq/bearmq:26.03.3
+  repo.repsy.io/nuricanozturk/bearmq/bearmq:26.03.0
 ```
 
 The volume keeps H2 files and (with the default image settings) Chronicle data under `/app/data`.
@@ -141,7 +141,7 @@ docker run -d \
   -e DB_PASSWORD=bearmq123 \
   -e BEARMQ_ADMIN_INITIAL_PASSWORD=Test123 \
   -v bearmq-data:/app/data \
-  repo.repsy.io/nuricanozturk/bearmq/bearmq:26.03.3
+  repo.repsy.io/nuricanozturk/bearmq/bearmq:26.03.0
 ```
 
 ### Docker Compose
