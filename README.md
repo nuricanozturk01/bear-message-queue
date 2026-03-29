@@ -21,11 +21,10 @@
 2. [Spring client for your app (Maven / Gradle)](#spring-client-for-your-app-maven--gradle)
 3. [Quick start (Docker)](#quick-start-docker)
 4. [Run options](#run-options)
-5. [Local development](#local-development)
-6. [Configuration](#configuration)
-7. [Screenshots](#screenshots)
-8. [Video](#video)
-9. [License & support](#license--support)
+5. [Configuration](#configuration)
+6. [Screenshots](#screenshots)
+7. [Video](#video)
+8. [License & support](#license--support)
 
 ---
 
@@ -87,9 +86,6 @@ docker run -d \
   -p 6667:6667 \
   repo.repsy.io/nuricanozturk/bearmq/bearmq:26.03.3
 ```
-
-To build the same stack locally instead: `docker build -t bearmq .` from the repo root, then use image name `bearmq` in `docker run`.
-
 - **Web UI & API:** http://localhost:3333  
 - **TCP broker:** `localhost:6667`
 
@@ -114,14 +110,12 @@ docker run -d \
   --name bearmq \
   -p 3333:3333 \
   -p 6667:6667 \
-  -e BEARMQ_ADMIN_INITIAL_PASSWORD=YourSecurePassword123 \
+  -e BEARMQ_ADMIN_INITIAL_PASSWORD=Test123 \
   -v bearmq-data:/app/data \
   repo.repsy.io/nuricanozturk/bearmq/bearmq:26.03.3
 ```
 
 The volume keeps H2 files and (with the default image settings) Chronicle data under `/app/data`.
-
-Optional H2 TCP for external tools: set `H2_TCP_SERVER_ENABLED=true` and publish port `9092`; align the JDBC URL with [`application.yml`](broker/src/main/resources/application.yml).
 
 ### Docker + PostgreSQL
 
@@ -155,31 +149,6 @@ docker run -d \
 ```bash
 docker compose up -d
 ```
-
-Set `BEARMQ_ADMIN_INITIAL_PASSWORD` in [`docker-compose.yml`](docker-compose.yml) before the first run. Postgres only (broker on the host):
-
-```bash
-docker compose up -d postgres
-```
-
-### Pre-built image
-
-Default registry image: **`repo.repsy.io/nuricanozturk/bearmq/bearmq:26.03.3`** (used in the `docker run` examples above). Bump the tag when you release a new version.
-
----
-
-## Local development
-
-**Needs:** Java 21, Maven 3.8+, Node 20+ (only if you run the Angular dev server separately), Docker optional.
-
-1. **Broker:** `cd broker && mvn spring-boot:run` — set `DB_*` for Postgres, or use default file H2. For DB only: `docker compose up -d postgres`.
-2. **UI (separate dev server):** `cd bearmq-frontend && npm install && npm start`
-3. **Client library:** `cd bearmq-spring-client && mvn install`
-
-The all-in-one Docker image embeds the Angular build into the broker JAR; `SpaFallbackFilter` serves `index.html` for client routes.
-
-**Consumer/producer apps:** add the client via [Spring client for your app](#spring-client-for-your-app-maven--gradle) above; clone + `mvn install` here is only for working on BearMQ itself.
-
 ---
 
 ## Configuration
@@ -199,12 +168,7 @@ The all-in-one Docker image embeds the Angular build into the broker JAR; `SpaFa
 
 ## Screenshots
 
-### Logo & demo architecture
-
-<p align="center">
-  <strong>Logo</strong><br/>
-  <img src="media/bearmq.png" width="280" alt="BearMQ logo full"/>
-</p>
+### Demo architecture
 
 <p align="center">
   <strong>Demo architecture</strong><br/>
