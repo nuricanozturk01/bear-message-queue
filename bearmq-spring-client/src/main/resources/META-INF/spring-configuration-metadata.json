@@ -34,6 +34,12 @@
       "defaultValue": 6667
     },
     {
+      "name": "bearmq.rest-port",
+      "type": "java.lang.Integer",
+      "description": "Port",
+      "defaultValue": 3333
+    },
+    {
       "name": "bearmq.virtual-host",
       "type": "java.lang.String",
       "description": "Virtual Host address"

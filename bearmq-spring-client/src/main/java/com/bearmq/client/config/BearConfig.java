@@ -6,16 +6,20 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(CONFIG_BASE)
 public class BearConfig {
-  private static final int REST_PORT = 3333;
   private static final int DEFAULT_INITIAL_DELAY = 500;
   private static final int DEFAULT_POLLING_DELAY = 250;
-  /** Prevents scheduleWithFixedDelay(…, 0, 0) busy-loop when the queue is hot or broker returns fast. */
+
+  /**
+   * Prevents scheduleWithFixedDelay(…, 0, 0) busy-loop when the queue is hot or broker returns
+   * fast.
+   */
   private static final int MIN_POLL_PERIOD_MS = 50;
 
   private String username;
   private String password;
   private String host;
   private int port;
+  private int restPort;
   private String virtualHost;
   private String apiKey;
   private int initialDelayMs = DEFAULT_INITIAL_DELAY;
@@ -39,6 +43,14 @@ public class BearConfig {
     } else {
       this.periodMs = Math.max(periodMs, MIN_POLL_PERIOD_MS);
     }
+  }
+
+  public int getRestPort() {
+    return this.restPort;
+  }
+
+  public void setRestPort(final int port) {
+    this.restPort = port;
   }
 
   public String getApiKey() {
@@ -93,9 +105,9 @@ public class BearConfig {
     if (host == null) {
       throw new IllegalStateException("host is null");
     } else if (host.contains("localhost") || host.contains("127.0.0.1") || host.contains("http")) {
-      return String.format("http://%s:%d", host, REST_PORT);
+      return String.format("http://%s:%d", host, restPort);
     } else {
-      return String.format("https://%s:%d", host, REST_PORT);
+      return String.format("https://%s:%d", host, restPort);
     }
   }
 }

@@ -6,12 +6,13 @@ app:
   queue2: queueZ
 
 bearmq:
-  username: rxucpxtkyazeqhwuhnylp
-  password: EZnqbfMEBRmtiVRKRqXJg
-  host: localhost
+  username: mnckbihpvuymdmpwvzsgohwedtg
+  password: DudFrjmbTHAreLiDKlHZcFsrOUZ
+  host: bearmq.nuricanozturk.com
   port: 6667
-  virtual-host: admin-rtxbionamwsxaftecspgo
-  api-key: bearmqt-bootstrap-change-me
+  virtual-host: admin-xdnmntyywmskyrzumlmhziscrdx
+  api-key: bearmqt-LqKOVVGrwwEZgbIBCbJSfIZAZSDndgssJbeJYwUxXENV
+  rest-port: 443
   listener:
     initial-delay-ms: 200
     period-ms: 350

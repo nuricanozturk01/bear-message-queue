@@ -19,8 +19,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 /**
- * Pushes declared topology to the broker before {@link com.bearmq.client.listener.BearListenerRegisterer}
- * starts polling (see {@link Order} values).
+ * Pushes declared topology to the broker before {@link
+ * com.bearmq.client.listener.BearListenerRegisterer} starts polling (see {@link Order} values).
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)

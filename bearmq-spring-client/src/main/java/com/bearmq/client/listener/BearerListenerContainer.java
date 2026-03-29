@@ -50,8 +50,7 @@ public class BearerListenerContainer implements Closeable {
   }
 
   public void start() {
-    final int handlerCount =
-        this.handlersByQueue.values().stream().mapToInt(List::size).sum();
+    final int handlerCount = this.handlersByQueue.values().stream().mapToInt(List::size).sum();
     final int poolSize = Math.max(SCHEDULED_THREAD_POOL_SIZE, handlerCount);
     this.executor = Executors.newScheduledThreadPool(poolSize);
 
