@@ -1,0 +1,1 @@
+import{Z as s,h as n,ia as e}from"./chunk-NSPFOU7F.js";var a=n(t=>{let{securityLevel:c}=s(),o=e("body");if(c==="sandbox"){let m=e(`#i${t}`).node()?.contentDocument??document;o=e(m.body)}return o.select(`#${t}`)},"selectSvgElement");export{a};
