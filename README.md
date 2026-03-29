@@ -19,12 +19,13 @@
 
 1. [What it is](#what-it-is)
 2. [Spring client for your app (Maven / Gradle)](#spring-client-for-your-app-maven--gradle)
-3. [Quick start (Docker)](#quick-start-docker)
-4. [Run options](#run-options)
-5. [Configuration](#configuration)
-6. [Screenshots](#screenshots)
-7. [Video](#video)
-8. [License & support](#license--support)
+3. [Quick start (Docker)](#live-demo)
+4. [Quick start (Docker)](#quick-start-docker)
+5. [Run options](#run-options)
+6. [Configuration](#configuration)
+7. [Screenshots](#screenshots)
+8. [Video](#video)
+9. [License & support](#license--support)
 
 ---
 
@@ -75,6 +76,15 @@ dependencies {
 }
 ```
 
+## Live Demo
+
+A test environment is available for you to explore BearMQ in action — publish and consume messages without any setup.
+
+- 🌐 **URL:** [https://bearmq.nuricanozturk.com](https://bearmq.nuricanozturk.com)
+- 👤 **Username:** `test`
+- 🔑 **Password:** `Test123`
+> ⚠️ The test account will expire in **1 week**.
+
 ## Quick start (Docker)
 
 Published image (Repsy):
@@ -86,7 +96,7 @@ docker run -d \
   -p 6667:6667 \
   repo.repsy.io/nuricanozturk/bearmq/bearmq:26.03.0
 ```
-- **Web UI & API:** http://localhost:3333  
+- **Web UI & API:** http://localhost:3333
 - **TCP broker:** `localhost:6667`
 
 **Admin user:** `admin`. If `BEARMQ_ADMIN_INITIAL_PASSWORD` is not set, a random password is logged once:
