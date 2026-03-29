@@ -19,7 +19,7 @@
 
 1. [What it is](#what-it-is)
 2. [Spring client for your app (Maven / Gradle)](#spring-client-for-your-app-maven--gradle)
-3. [Quick start (Docker)](#live-demo)
+3. [Live Demo](#live-demo)
 4. [Quick start (Docker)](#quick-start-docker)
 5. [Run options](#run-options)
 6. [Configuration](#configuration)
