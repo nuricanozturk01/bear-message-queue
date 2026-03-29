@@ -5,12 +5,16 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.ApplicationContext;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Component
-public class BearListenerRegisterer implements SmartInitializingSingleton {
+@Order(Ordered.LOWEST_PRECEDENCE)
+public class BearListenerRegisterer implements ApplicationRunner {
   private final ApplicationContext context;
   private final BearerListenerContainer bearerListener;
 
@@ -21,7 +25,7 @@ public class BearListenerRegisterer implements SmartInitializingSingleton {
   }
 
   @Override
-  public void afterSingletonsInstantiated() {
+  public void run(final ApplicationArguments args) {
     final Map<String, List<Handler>> byQueue = new HashMap<>();
 
     for (final String name : context.getBeanDefinitionNames()) {

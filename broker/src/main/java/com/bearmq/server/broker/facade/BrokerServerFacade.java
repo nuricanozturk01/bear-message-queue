@@ -56,7 +56,6 @@ import org.springframework.stereotype.Component;
 @SuppressWarnings("resource")
 public class BrokerServerFacade implements BrokerRuntimePort {
 
-  /** Persisted Chronicle tailer index so dequeue does not replay after broker or vhost reload. */
   private static final String CONSUMER_INDEX_FILENAME = ".bearmq-consumer-index";
 
   private final VirtualHostService virtualHostService;
@@ -192,7 +191,6 @@ public class BrokerServerFacade implements BrokerRuntimePort {
 
   private static final int PEEK_WINDOW_MAX = 5;
 
-  /** Safety cap: scanning entire huge backlogs for “last 5” would be too expensive. */
   private static final int PEEK_SCAN_CAP = 50_000;
 
   @Override
@@ -338,9 +336,6 @@ public class BrokerServerFacade implements BrokerRuntimePort {
     log.info("Broker runtime state unloaded for vhostId={}", vhostId);
   }
 
-  /**
-   * Deletes Chronicle queue directories and consumer index files under {@code storageDir/vhostId}.
-   */
   public void purgeVhostStorage(final String vhostId) {
 
     final Path root = Path.of(this.storageDir + File.separator + vhostId);
@@ -393,6 +388,12 @@ public class BrokerServerFacade implements BrokerRuntimePort {
     final Set<String> queueNames = this.resolveQueuesFor(key);
 
     if (queueNames.isEmpty()) {
+      log.warn(
+          "BearMQ: PUBLISH dropped for exchange '{}' (vhostId={}) — no queues reachable. Declare"
+              + " queues and bindings from this exchange (or register them from the producer app)"
+              + " before publishing; otherwise messages are not stored.",
+          exchangeName,
+          vhost.getId());
       return Optional.empty();
     }
 
@@ -514,11 +515,6 @@ public class BrokerServerFacade implements BrokerRuntimePort {
     return Path.of(this.storageDir + File.separator + vhostId + File.separator + queueName);
   }
 
-  /**
-   * @param fixSidecarOnFailure when {@code true}, normalize and persist consumer index sidecar on
-   *     EOF/stale index or parse errors (dequeue path). When {@code false}, only adjust in-memory
-   *     tailer position — metrics probes must not rewrite {@code .bearmq-consumer-index}.
-   */
   private void restoreTailerPosition(
       final ExcerptTailer tailer, final Path queueDir, final boolean fixSidecarOnFailure) {
 

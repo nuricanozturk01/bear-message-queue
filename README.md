@@ -221,7 +221,11 @@ The all-in-one Docker image embeds the Angular build into the broker JAR; `SpaFa
 
 <p align="center"><strong>Instance detail (1)</strong><br/><img src="media/dark/instance-details-1.png" width="900" alt="BearMQ UI dark theme — Instance detail 1"/></p>
 
+<p align="center"><strong>Preview (1.5)</strong><br/><img src="media/dark/preview.png" width="900" alt="BearMQ UI dark theme — Preview"/></p>
+
 <p align="center"><strong>Instance detail (2)</strong><br/><img src="media/dark/instance-details-2.png" width="900" alt="BearMQ UI dark theme — Instance detail 2"/></p>
+
+<p align="center"><strong>Queue Messages (2.5)</strong><br/><img src="media/dark/messages.png" width="900" alt="BearMQ UI dark theme — Instance detail 2.5"/></p>
 
 <p align="center"><strong>Instance detail (3)</strong><br/><img src="media/dark/instance-details-3.png" width="900" alt="BearMQ UI dark theme — Instance detail 3"/></p>
 
@@ -249,7 +253,11 @@ The all-in-one Docker image embeds the Angular build into the broker JAR; `SpaFa
 
 <p align="center"><strong>Instance detail (1)</strong><br/><img src="media/light/instance-detail-1.png" width="900" alt="BearMQ UI light theme — Instance detail 1"/></p>
 
+<p align="center"><strong>Preview (1.5)</strong><br/><img src="media/light/preview.png" width="900" alt="BearMQ UI light theme — Preview"/></p>
+
 <p align="center"><strong>Instance detail (2)</strong><br/><img src="media/light/instance-detail-2.png" width="900" alt="BearMQ UI light theme — Instance detail 2"/></p>
+
+<p align="center"><strong>Queue Messages (2.5)</strong><br/><img src="media/light/messages.png" width="900" alt="BearMQ UI light theme — Instance detail 2.5"/></p>
 
 <p align="center"><strong>Instance detail (3)</strong><br/><img src="media/light/instance-detail-3.png" width="900" alt="BearMQ UI light theme — Instance detail 3"/></p>
 

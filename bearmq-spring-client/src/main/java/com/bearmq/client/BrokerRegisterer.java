@@ -11,12 +11,20 @@ import com.bearmq.client.model.BearQueue;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+/**
+ * Pushes declared topology to the broker before {@link com.bearmq.client.listener.BearListenerRegisterer}
+ * starts polling (see {@link Order} values).
+ */
 @Component
-public class BrokerRegisterer implements SmartInitializingSingleton {
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class BrokerRegisterer implements ApplicationRunner {
   private static final String API_KEY_HEADER = "X-API-KEY";
 
   private final List<BearQueue> queues;
@@ -38,7 +46,7 @@ public class BrokerRegisterer implements SmartInitializingSingleton {
   }
 
   @Override
-  public void afterSingletonsInstantiated() {
+  public void run(final ApplicationArguments args) {
     final List<ExchangeForm> exDtos =
         exchanges.stream()
             .map(
