@@ -139,7 +139,7 @@ docker run -d \
   -e DB_URL=jdbc:postgresql://bearmq-postgres:5432/bearmq \
   -e DB_USERNAME=bearmq \
   -e DB_PASSWORD=bearmq123 \
-  -e BEARMQ_ADMIN_INITIAL_PASSWORD=YourSecurePassword123 \
+  -e BEARMQ_ADMIN_INITIAL_PASSWORD=Test123 \
   -v bearmq-data:/app/data \
   repo.repsy.io/nuricanozturk/bearmq/bearmq:26.03.3
 ```
