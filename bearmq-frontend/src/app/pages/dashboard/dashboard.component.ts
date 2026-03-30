@@ -27,6 +27,7 @@ export class DashboardComponent implements OnDestroy {
   readonly rotateBusy = signal(false);
 
   private resourcesSub?: Subscription;
+  private resourceMetricsSub?: Subscription;
 
   constructor() {
     this.broker.getMetricsSummary().subscribe({
@@ -42,7 +43,7 @@ export class DashboardComponent implements OnDestroy {
       error: () => undefined,
     });
 
-    this.broker.getResourceMetrics().subscribe({
+    this.resourceMetricsSub = this.broker.getResourceMetrics().subscribe({
       next: (r) => {
         this.resources.set(r);
         this.openResourceStream();
@@ -52,6 +53,7 @@ export class DashboardComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.resourceMetricsSub?.unsubscribe();
     this.resourcesSub?.unsubscribe();
   }
 

@@ -208,49 +208,52 @@ public class BrokerServerFacade implements BrokerRuntimePort {
       return QueuePeekResult.EMPTY;
     }
     lock.lock();
-    final ExcerptTailer tailer = cq.createTailer();
     try {
-      final Path queueDir = this.queueDataDir(vhostId, queueName);
-      this.restoreTailerPosition(tailer, queueDir, false);
-      final ArrayDeque<byte[]> window = new ArrayDeque<>(k + 1);
-      int scanned = 0;
-      while (scanned < PEEK_SCAN_CAP) {
-        final AtomicReference<byte[]> ref = new AtomicReference<>();
-        final boolean ok =
-            tailer.readBytes(
-                in -> {
-                  final byte[] buf = new byte[(int) in.readRemaining()];
-                  in.read(buf);
-                  ref.set(buf);
-                });
-        if (!ok || ref.get() == null) {
-          break;
-        }
-        window.addLast(ref.get());
-        if (window.size() > k) {
-          window.removeFirst();
-        }
-        scanned++;
-      }
-      boolean hitScanCap = false;
-      if (scanned == PEEK_SCAN_CAP) {
-        final AtomicReference<byte[]> probe = new AtomicReference<>();
-        final boolean more =
-            tailer.readBytes(
-                in -> {
-                  final byte[] buf = new byte[(int) in.readRemaining()];
-                  in.read(buf);
-                  probe.set(buf);
-                });
-        hitScanCap = more && probe.get() != null;
-      }
-      final boolean hasMorePending = scanned > k || hitScanCap;
-      return new QueuePeekResult(new ArrayList<>(window), hasMorePending);
-    } finally {
+      final ExcerptTailer tailer = cq.createTailer();
       try {
-        tailer.close();
-      } catch (final Throwable ignore) {
+        final Path queueDir = this.queueDataDir(vhostId, queueName);
+        this.restoreTailerPosition(tailer, queueDir, false);
+        final ArrayDeque<byte[]> window = new ArrayDeque<>(k + 1);
+        int scanned = 0;
+        while (scanned < PEEK_SCAN_CAP) {
+          final AtomicReference<byte[]> ref = new AtomicReference<>();
+          final boolean ok =
+              tailer.readBytes(
+                  in -> {
+                    final byte[] buf = new byte[(int) in.readRemaining()];
+                    in.read(buf);
+                    ref.set(buf);
+                  });
+          if (!ok || ref.get() == null) {
+            break;
+          }
+          window.addLast(ref.get());
+          if (window.size() > k) {
+            window.removeFirst();
+          }
+          scanned++;
+        }
+        boolean hitScanCap = false;
+        if (scanned == PEEK_SCAN_CAP) {
+          final AtomicReference<byte[]> probe = new AtomicReference<>();
+          final boolean more =
+              tailer.readBytes(
+                  in -> {
+                    final byte[] buf = new byte[(int) in.readRemaining()];
+                    in.read(buf);
+                    probe.set(buf);
+                  });
+          hitScanCap = more && probe.get() != null;
+        }
+        final boolean hasMorePending = scanned > k || hitScanCap;
+        return new QueuePeekResult(new ArrayList<>(window), hasMorePending);
+      } finally {
+        try {
+          tailer.close();
+        } catch (final Throwable ignore) {
+        }
       }
+    } finally {
       lock.unlock();
     }
   }
@@ -269,44 +272,47 @@ public class BrokerServerFacade implements BrokerRuntimePort {
       return QueuePendingSnapshot.NOT_LOADED;
     }
     lock.lock();
-    final ExcerptTailer tailer = cq.createTailer();
     try {
-      final Path queueDir = this.queueDataDir(vhostId, queueName);
-      this.restoreTailerPosition(tailer, queueDir, false);
-      long n = 0L;
-      while (n < PENDING_COUNT_CAP) {
-        final AtomicReference<byte[]> ref = new AtomicReference<>();
-        final boolean ok =
-            tailer.readBytes(
-                in -> {
-                  final byte[] buf = new byte[(int) in.readRemaining()];
-                  in.read(buf);
-                  ref.set(buf);
-                });
-        if (!ok || ref.get() == null) {
-          break;
-        }
-        n++;
-      }
-      if (n == PENDING_COUNT_CAP) {
-        final AtomicReference<byte[]> probe = new AtomicReference<>();
-        final boolean more =
-            tailer.readBytes(
-                in -> {
-                  final byte[] buf = new byte[(int) in.readRemaining()];
-                  in.read(buf);
-                  probe.set(buf);
-                });
-        if (more && probe.get() != null) {
-          return new QueuePendingSnapshot(PENDING_COUNT_CAP, true);
-        }
-      }
-      return new QueuePendingSnapshot(n, false);
-    } finally {
+      final ExcerptTailer tailer = cq.createTailer();
       try {
-        tailer.close();
-      } catch (final Throwable ignore) {
+        final Path queueDir = this.queueDataDir(vhostId, queueName);
+        this.restoreTailerPosition(tailer, queueDir, false);
+        long n = 0L;
+        while (n < PENDING_COUNT_CAP) {
+          final AtomicReference<byte[]> ref = new AtomicReference<>();
+          final boolean ok =
+              tailer.readBytes(
+                  in -> {
+                    final byte[] buf = new byte[(int) in.readRemaining()];
+                    in.read(buf);
+                    ref.set(buf);
+                  });
+          if (!ok || ref.get() == null) {
+            break;
+          }
+          n++;
+        }
+        if (n == PENDING_COUNT_CAP) {
+          final AtomicReference<byte[]> probe = new AtomicReference<>();
+          final boolean more =
+              tailer.readBytes(
+                  in -> {
+                    final byte[] buf = new byte[(int) in.readRemaining()];
+                    in.read(buf);
+                    probe.set(buf);
+                  });
+          if (more && probe.get() != null) {
+            return new QueuePendingSnapshot(PENDING_COUNT_CAP, true);
+          }
+        }
+        return new QueuePendingSnapshot(n, false);
+      } finally {
+        try {
+          tailer.close();
+        } catch (final Throwable ignore) {
+        }
       }
+    } finally {
       lock.unlock();
     }
   }
@@ -475,28 +481,31 @@ public class BrokerServerFacade implements BrokerRuntimePort {
       }
 
       lock.lock();
-      final ExcerptTailer tailer = chronicleQueue.createTailer();
       try {
-        this.restoreTailerPosition(tailer, queueDir, true);
-        final AtomicReference<byte[]> responseBody = new AtomicReference<>();
+        final ExcerptTailer tailer = chronicleQueue.createTailer();
+        try {
+          this.restoreTailerPosition(tailer, queueDir, true);
+          final AtomicReference<byte[]> responseBody = new AtomicReference<>();
 
-        final boolean ok =
-            tailer.readBytes(
-                in -> {
-                  final byte[] buf = new byte[(int) in.readRemaining()];
-                  in.read(buf);
-                  responseBody.set(buf);
-                });
+          final boolean ok =
+              tailer.readBytes(
+                  in -> {
+                    final byte[] buf = new byte[(int) in.readRemaining()];
+                    in.read(buf);
+                    responseBody.set(buf);
+                  });
 
-        if (ok && responseBody.get() != null) {
-          this.persistConsumerIndexAfterSuccessfulRead(chronicleQueue, tailer, queueDir);
-          return Optional.of(responseBody.get());
+          if (ok && responseBody.get() != null) {
+            this.persistConsumerIndexAfterSuccessfulRead(chronicleQueue, tailer, queueDir);
+            return Optional.of(responseBody.get());
+          }
+        } finally {
+          try {
+            tailer.close();
+          } catch (final Throwable ignore) {
+          }
         }
       } finally {
-        try {
-          tailer.close();
-        } catch (final Throwable ignore) {
-        }
         lock.unlock();
       }
 
