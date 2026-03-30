@@ -45,18 +45,18 @@ public class BrokerServer implements Closeable {
         this.executorService.execute(() -> this.handleClient(socket));
       }
     } catch (final IOException e) {
-      Thread.currentThread().interrupt();
       log.error("Error accepting connection", e);
     }
   }
 
   private void handleClient(final Socket socket) {
 
-    try (final DataInputStream dataInputStream = new DataInputStream(socket.getInputStream())) {
+    try (socket; final DataInputStream dataInputStream = new DataInputStream(socket.getInputStream())) {
       final int messageLength = dataInputStream.readInt();
 
       if (messageLength <= 0 || messageLength > MAX_MESSAGE_SIZE) {
         log.error("Invalid message length: " + messageLength);
+        return;
       }
 
       final byte[] bytes = new byte[messageLength];
@@ -94,7 +94,9 @@ public class BrokerServer implements Closeable {
       }
 
     } catch (final Exception e) {
-      Thread.currentThread().interrupt();
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
       log.error("Error accepting connection", e);
     }
   }
@@ -125,7 +127,6 @@ public class BrokerServer implements Closeable {
 
       dos.flush();
     } catch (final IOException e) {
-      Thread.currentThread().interrupt();
       log.error("Error accepting connection", e);
     }
   }
