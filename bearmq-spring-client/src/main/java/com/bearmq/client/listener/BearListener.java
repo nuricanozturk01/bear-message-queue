@@ -12,4 +12,8 @@ public @interface BearListener {
   String[] queues() default {};
 
   long delay() default 200;
+
+  int maxRetries() default 3;
+
+  String deadLetterQueue() default "";
 }

@@ -18,12 +18,7 @@ import com.bearmq.shared.tenant.Tenant;
 import com.bearmq.shared.tenant.TenantRepository;
 import com.bearmq.shared.tenant.dto.TenantInfo;
 import com.bearmq.shared.vhost.dto.VirtualHostInfo;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.IOException;
-import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,7 +30,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -48,10 +42,10 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Testcontainers
-class QueueTcpSmokeTest {
+class DeadLetterQueueIntegrationTest {
 
-  private static final int CHUNK = 4096;
-  private static final String QUEUE_NAME = "smoke-queue";
+  private static final String SOURCE_QUEUE = "dlq-source-queue";
+  private static final String DEAD_LETTER_QUEUE = "dlq-dead-letter-queue";
 
   private static Path storageDir;
 
@@ -62,7 +56,7 @@ class QueueTcpSmokeTest {
   @DynamicPropertySource
   static void registerProperties(final DynamicPropertyRegistry registry) {
     try {
-      storageDir = Files.createTempDirectory("bearmq-smoke-");
+      storageDir = Files.createTempDirectory("bearmq-dlq-it-");
     } catch (final IOException e) {
       throw new IllegalStateException(e);
     }
@@ -70,7 +64,7 @@ class QueueTcpSmokeTest {
     registry.add("spring.datasource.username", POSTGRES::getUsername);
     registry.add("spring.datasource.password", POSTGRES::getPassword);
     registry.add("bearmq.broker.storage-dir", () -> storageDir.toAbsolutePath().toString());
-    registry.add("bearmq.server.broker.port", () -> 36667);
+    registry.add("bearmq.server.broker.port", () -> 36668);
   }
 
   @Autowired private TenantService tenantService;
@@ -78,13 +72,8 @@ class QueueTcpSmokeTest {
   @Autowired private BrokerApiFacade brokerApiFacade;
   @Autowired private TenantRepository tenantRepository;
   @Autowired private MessagingApiKeyService messagingApiKeyService;
-  @Autowired private ObjectMapper objectMapper;
   @Autowired private BrokerServerFacade brokerServerFacade;
 
-  @Value("${bearmq.server.broker.port}")
-  private int brokerTcpPort;
-
-  private TenantInfo tenantInfo;
   private String vhostId;
   private String vhostName;
   private String vhostUsername;
@@ -94,98 +83,121 @@ class QueueTcpSmokeTest {
   @BeforeEach
   void seedTenantAndTopology() {
     final String username =
-        "smoke-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        "dlq-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
     final TenantAuthenticateInfo created =
         this.tenantService.create(new RegisterRequest(username, "secret12"));
     final Tenant tenant = this.tenantRepository.findById(created.id()).orElseThrow();
-    this.tenantInfo = this.tenantConverter.toTenantInfo(tenant);
-    final VirtualHostInfo vhost = this.brokerApiFacade.createVirtualHost(this.tenantInfo);
+    final TenantInfo tenantInfo = this.tenantConverter.toTenantInfo(tenant);
+    final VirtualHostInfo vhost = this.brokerApiFacade.createVirtualHost(tenantInfo);
     this.vhostId = vhost.id();
     this.vhostName = vhost.name();
     this.vhostUsername = vhost.username();
     this.vhostPassword = vhost.password();
     this.apiKey = this.messagingApiKeyService.getMessagingApiKey();
+
     final BrokerRequest request =
         new BrokerRequest(
             this.vhostName,
             1,
             List.of(),
-            List.of(new QueueRequest(QUEUE_NAME, true, false, false, false, Map.of())),
+            List.of(
+                new QueueRequest(SOURCE_QUEUE, true, false, false, false, Map.of()),
+                new QueueRequest(DEAD_LETTER_QUEUE, true, false, false, true, Map.of())),
             List.of());
-    this.brokerApiFacade.createBrokerObjects(request, this.tenantInfo);
-    assertThat(this.brokerServerFacade.isVhostLoaded(this.vhostId))
-        .as("TCP broker runtime should expose the queue after topology apply")
-        .isTrue();
-    assertThat(this.brokerServerFacade.getLoadedQueueNames(this.vhostId)).contains(QUEUE_NAME);
+    this.brokerApiFacade.createBrokerObjects(request, tenantInfo);
+
+    assertThat(this.brokerServerFacade.isVhostLoaded(this.vhostId)).isTrue();
+    assertThat(this.brokerServerFacade.getLoadedQueueNames(this.vhostId))
+        .contains(SOURCE_QUEUE, DEAD_LETTER_QUEUE);
   }
 
   @Test
-  void enqueueThenDequeue_roundTripsPayloadOverTcp() throws Exception {
-    final byte[] payload = "smoke-payload".getBytes(StandardCharsets.UTF_8);
-    this.tcpEnqueue(payload);
-    Optional<byte[]> received = Optional.empty();
-    for (int i = 0; i < 80 && received.isEmpty(); i++) {
-      received = this.tcpDequeue();
-      if (received.isEmpty()) {
-        Thread.sleep(50);
-      }
-    }
-    assertThat(received).as("message should appear on TCP dequeue after enqueue").isPresent();
-    assertThat(received.get()).isEqualTo(payload);
+  void message_routedToDeadLetterQueue_afterConsumerFailure() {
+    final byte[] payload = "dlq-test-payload".getBytes(StandardCharsets.UTF_8);
+
+    this.enqueue(SOURCE_QUEUE, payload);
+
+    final Optional<byte[]> dequeued = this.dequeue(SOURCE_QUEUE);
+    assertThat(dequeued).isPresent();
+    assertThat(dequeued.get()).isEqualTo(payload);
+
+    this.enqueue(DEAD_LETTER_QUEUE, dequeued.get());
+
+    final Optional<byte[]> dlqMessage = this.dequeue(DEAD_LETTER_QUEUE);
+    assertThat(dlqMessage).isPresent();
+    assertThat(dlqMessage.get()).isEqualTo(payload);
   }
 
   @Test
-  void enqueueThenDequeue_sameProcessFacade_roundTripsPayload() {
-    final byte[] payload = "facade-payload".getBytes(StandardCharsets.UTF_8);
-    final Message enq =
-        Message.builder()
-            .operation(BearOperation.ENQUEUE)
-            .queue(QUEUE_NAME)
-            .auth(this.auth())
-            .body(payload)
-            .build();
-    assertThat(this.brokerServerFacade.identifyOperationAndApply(enq)).isEmpty();
-    final Message deq =
-        Message.builder()
-            .operation(BearOperation.DEQUEUE)
-            .queue(QUEUE_NAME)
-            .auth(this.auth())
-            .build();
-    final Optional<byte[]> out = this.brokerServerFacade.identifyOperationAndApply(deq);
-    assertThat(out).isPresent();
-    assertThat(out.get()).isEqualTo(payload);
+  void deadLetterQueue_acceptsMessages_independently() {
+    final byte[] payload = "direct-dlq-message".getBytes(StandardCharsets.UTF_8);
+
+    this.enqueue(DEAD_LETTER_QUEUE, payload);
+
+    final Optional<byte[]> dlqMessage = this.dequeue(DEAD_LETTER_QUEUE);
+    assertThat(dlqMessage).isPresent();
+    assertThat(dlqMessage.get()).isEqualTo(payload);
   }
 
-  private void tcpEnqueue(final byte[] body) throws IOException {
+  @Test
+  void sourceQueue_remainsEmpty_afterMessageRouted() {
+    final byte[] payload = "source-check-payload".getBytes(StandardCharsets.UTF_8);
 
+    this.enqueue(SOURCE_QUEUE, payload);
+    this.dequeue(SOURCE_QUEUE);
+    this.enqueue(DEAD_LETTER_QUEUE, payload);
+
+    final Optional<byte[]> secondDequeue = this.dequeue(SOURCE_QUEUE);
+    assertThat(secondDequeue).isEmpty();
+  }
+
+  @Test
+  void multipleMessages_eachRoutedToDeadLetterQueue() {
+    final byte[] firstPayload = "first-failed".getBytes(StandardCharsets.UTF_8);
+    final byte[] secondPayload = "second-failed".getBytes(StandardCharsets.UTF_8);
+
+    this.enqueue(SOURCE_QUEUE, firstPayload);
+    this.enqueue(SOURCE_QUEUE, secondPayload);
+
+    final Optional<byte[]> first = this.dequeue(SOURCE_QUEUE);
+    assertThat(first).isPresent();
+    this.enqueue(DEAD_LETTER_QUEUE, first.get());
+
+    final Optional<byte[]> second = this.dequeue(SOURCE_QUEUE);
+    assertThat(second).isPresent();
+    this.enqueue(DEAD_LETTER_QUEUE, second.get());
+
+    final Optional<byte[]> firstDlq = this.dequeue(DEAD_LETTER_QUEUE);
+    assertThat(firstDlq).isPresent();
+    assertThat(firstDlq.get()).isEqualTo(firstPayload);
+
+    final Optional<byte[]> secondDlq = this.dequeue(DEAD_LETTER_QUEUE);
+    assertThat(secondDlq).isPresent();
+    assertThat(secondDlq.get()).isEqualTo(secondPayload);
+  }
+
+  private void enqueue(final String queueName, final byte[] body) {
     final Message msg =
         Message.builder()
             .operation(BearOperation.ENQUEUE)
-            .queue(QUEUE_NAME)
+            .queue(queueName)
             .auth(this.auth())
             .body(body)
             .build();
-    try (Socket socket = new Socket("127.0.0.1", this.brokerTcpPort)) {
-      this.writeFrame(socket, msg);
-    }
+    this.brokerServerFacade.identifyOperationAndApply(msg);
   }
 
-  private Optional<byte[]> tcpDequeue() throws IOException {
-
+  private Optional<byte[]> dequeue(final String queueName) {
     final Message msg =
         Message.builder()
             .operation(BearOperation.DEQUEUE)
-            .queue(QUEUE_NAME)
+            .queue(queueName)
             .auth(this.auth())
             .build();
-    try (Socket socket = new Socket("127.0.0.1", this.brokerTcpPort)) {
-      this.writeFrame(socket, msg);
-      return this.readOptionalResponse(socket);
-    }
+    return this.brokerServerFacade.identifyOperationAndApply(msg);
   }
 
   private Auth auth() {
-
     return Auth.builder()
         .vhost(b64(this.vhostName))
         .username(b64(this.vhostUsername))
@@ -195,45 +207,6 @@ class QueueTcpSmokeTest {
   }
 
   private static String b64(final String raw) {
-
     return Base64.getEncoder().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
-  }
-
-  private void writeFrame(final Socket socket, final Message message) throws IOException {
-
-    final byte[] bytes = this.objectMapper.writeValueAsBytes(message);
-    final DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-    dos.writeInt(bytes.length);
-    int offset = 0;
-    int chunk = 0;
-    while (offset < bytes.length) {
-      final int chunkSize = Math.min(CHUNK, bytes.length - offset);
-      dos.writeInt(++chunk);
-      dos.write(bytes, offset, chunkSize);
-      offset += chunkSize;
-    }
-    dos.flush();
-  }
-
-  private Optional<byte[]> readOptionalResponse(final Socket socket) throws IOException {
-
-    try {
-      final DataInputStream dis = new DataInputStream(socket.getInputStream());
-      final int totalLen = dis.readInt();
-      if (totalLen <= 0) {
-        return Optional.empty();
-      }
-      final byte[] buf = new byte[totalLen];
-      int offset = 0;
-      while (offset < totalLen) {
-        dis.readInt();
-        final int chunkLen = Math.min(CHUNK, totalLen - offset);
-        dis.readFully(buf, offset, chunkLen);
-        offset += chunkLen;
-      }
-      return Optional.of(buf);
-    } catch (final EOFException e) {
-      return Optional.empty();
-    }
   }
 }

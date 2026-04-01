@@ -54,6 +54,10 @@ public final class Queue {
   @ColumnDefault("false")
   private boolean exclusive;
 
+  @Column(name = "dead_letter", nullable = false)
+  @ColumnDefault("false")
+  private boolean deadLetter;
+
   @Column(name = "auto_delete", nullable = false)
   @ColumnDefault("false")
   private boolean autoDelete;

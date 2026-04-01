@@ -74,6 +74,7 @@ class BrokerReadFacadeTest {
                   qq.isDurable(),
                   qq.isExclusive(),
                   qq.isAutoDelete(),
+                  qq.isDeadLetter(),
                   qq.getStatus() != null ? qq.getStatus().name() : "");
             });
 
@@ -119,6 +120,7 @@ class BrokerReadFacadeTest {
                   qq.isDurable(),
                   qq.isExclusive(),
                   qq.isAutoDelete(),
+                  qq.isDeadLetter(),
                   qq.getStatus() != null ? qq.getStatus().name() : "");
             });
 
