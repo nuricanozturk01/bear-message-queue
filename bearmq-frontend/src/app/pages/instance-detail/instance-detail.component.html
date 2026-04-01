@@ -257,7 +257,12 @@
             <tbody>
               @for (q of queues(); track q.id) {
                 <tr>
-                  <td class="fw-medium">{{ q.name }}</td>
+                  <td class="fw-medium">
+                    {{ q.name }}
+                    @if (q.deadLetter) {
+                      <span class="badge text-bg-danger ms-1 font-monospace" title="Dead Letter Queue">DLQ</span>
+                    }
+                  </td>
                   <td class="d-none d-md-table-cell text-body-secondary small">{{ q.actualName }}</td>
                   <td>
                     @if (q.durable) {
@@ -514,25 +519,42 @@
   <div class="modal d-block" tabindex="-1" role="dialog" style="background: rgba(0, 0, 0, 0.5)">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
       <div class="modal-content border-0 shadow-lg">
-        <div class="modal-header border-0 pb-0">
+        <div class="modal-header border-0 pb-0" [ngClass]="pk.isDlq ? 'bg-danger-subtle' : ''">
           <div>
             <h5 class="modal-title mb-0">
-              Queue messages
+              @if (pk.isDlq) {
+                <i class="bi bi-exclamation-octagon-fill text-danger me-2"></i>Dead Letter Queue
+              } @else {
+                Queue messages
+              }
               <span class="font-monospace text-primary ms-1">{{ pk.queueName }}</span>
             </h5>
             <p class="small text-body-secondary mb-0 mt-1">
-              Up to the <strong>5 newest</strong> pending payloads (consumer tail). Read-only — does not
-              consume or advance the consumer offset.
+              @if (pk.isDlq) {
+                Messages that <strong>failed all retry attempts</strong> and were routed here.
+                Read-only — does not consume or advance the consumer offset.
+              } @else {
+                Up to the <strong>5 newest</strong> pending payloads (consumer tail). Read-only — does not
+                consume or advance the consumer offset.
+              }
             </p>
           </div>
           <button type="button" class="btn-close" (click)="closePeek()" aria-label="Close"></button>
         </div>
         <div class="modal-body pt-3">
-          <div class="alert alert-info small py-2 mb-3">
-            <i class="bi bi-shield-check me-1"></i>
-            This view is <strong>non-destructive</strong>: messages stay on the queue and are not
-            counted as delivered.
-          </div>
+          @if (pk.isDlq) {
+            <div class="alert alert-warning small py-2 mb-3">
+              <i class="bi bi-exclamation-triangle me-1"></i>
+              This is a <strong>Dead Letter Queue</strong>. Messages here were moved after exhausting all
+              processing retries. Investigate and reprocess or discard them.
+            </div>
+          } @else {
+            <div class="alert alert-info small py-2 mb-3">
+              <i class="bi bi-shield-check me-1"></i>
+              This view is <strong>non-destructive</strong>: messages stay on the queue and are not
+              counted as delivered.
+            </div>
+          }
           @if (peekLoading()) {
             <div class="text-center py-4 text-body-secondary">
               <div class="spinner-border spinner-border-sm me-2"></div>

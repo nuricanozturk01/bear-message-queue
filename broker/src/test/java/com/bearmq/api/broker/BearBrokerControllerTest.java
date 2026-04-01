@@ -117,7 +117,7 @@ class BearBrokerControllerTest {
   @Test
   void listQueues_returns200WithQueues() throws Exception {
     final QueueSummaryDto q =
-        new QueueSummaryDto("q1", "my-q", "q-actual", true, false, false, "ACTIVE");
+        new QueueSummaryDto("q1", "my-q", "q-actual", true, false, false, false, "ACTIVE");
     when(brokerReadFacade.listQueues("v1")).thenReturn(List.of(q));
 
     mockMvc

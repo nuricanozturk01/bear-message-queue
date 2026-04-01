@@ -30,6 +30,7 @@ export interface QueueSummaryDto {
   durable: boolean;
   exclusive: boolean;
   autoDelete: boolean;
+  deadLetter: boolean;
   status: string;
 }
 

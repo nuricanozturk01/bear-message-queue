@@ -110,7 +110,7 @@ class QueueTcpSmokeTest {
             this.vhostName,
             1,
             List.of(),
-            List.of(new QueueRequest(QUEUE_NAME, true, false, false, Map.of())),
+            List.of(new QueueRequest(QUEUE_NAME, true, false, false, false, Map.of())),
             List.of());
     this.brokerApiFacade.createBrokerObjects(request, this.tenantInfo);
     assertThat(this.brokerServerFacade.isVhostLoaded(this.vhostId))

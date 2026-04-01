@@ -7,4 +7,5 @@ public record QueueSummaryDto(
     boolean durable,
     boolean exclusive,
     boolean autoDelete,
+    boolean deadLetter,
     String status) {}

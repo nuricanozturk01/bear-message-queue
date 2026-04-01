@@ -56,7 +56,7 @@ export class InstanceDetailComponent {
   } | null>(null);
   readonly deleteBusy = signal(false);
 
-  readonly peekTarget = signal<{ queueId: string; queueName: string } | null>(null);
+  readonly peekTarget = signal<{ queueId: string; queueName: string; isDlq: boolean } | null>(null);
   readonly peekData = signal<QueuePeekResponseDto | null>(null);
   readonly peekLoading = signal(false);
   readonly peekError = signal<string | null>(null);
@@ -338,7 +338,7 @@ export class InstanceDetailComponent {
   openPeek(q: QueueSummaryDto): void {
     const v = this.vhost();
     if (!v) return;
-    this.peekTarget.set({ queueId: q.id, queueName: q.name });
+    this.peekTarget.set({ queueId: q.id, queueName: q.name, isDlq: q.deadLetter });
     this.peekData.set(null);
     this.peekError.set(null);
     this.peekLoading.set(true);

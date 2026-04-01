@@ -3,6 +3,8 @@ package com.bearmq.client.listener;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -58,9 +60,16 @@ class BearerListenerContainerDlqTest {
         .thenReturn(Optional.empty());
 
     final CountDownLatch dlqLatch = new CountDownLatch(1);
-    final AtomicInteger invokeCount = new AtomicInteger(0);
+    doAnswer(
+            invocation -> {
+              dlqLatch.countDown();
+              return null;
+            })
+        .when(this.dlqRouter)
+        .route(eq(DLQ_NAME), any());
 
-    final FailingBean bean = new FailingBean(invokeCount, dlqLatch, MAX_RETRIES + 1);
+    final AtomicInteger invokeCount = new AtomicInteger(0);
+    final FailingBean bean = new FailingBean(invokeCount);
     final Method method = FailingBean.class.getMethod("handle", byte[].class);
     final Handler handler = new Handler(bean, method, MAX_RETRIES, DLQ_NAME);
 
@@ -102,20 +111,16 @@ class BearerListenerContainerDlqTest {
         .thenReturn(Optional.of(payload))
         .thenReturn(Optional.empty());
 
-    final CountDownLatch exhaustedLatch = new CountDownLatch(1);
-    final AtomicInteger invokeCount = new AtomicInteger(0);
     final int retries = 1;
-
-    final FailingBean bean = new FailingBean(invokeCount, exhaustedLatch, retries + 1);
+    final AtomicInteger invokeCount = new AtomicInteger(0);
+    final FailingBean bean = new FailingBean(invokeCount);
     final Method method = FailingBean.class.getMethod("handle", byte[].class);
     final Handler handler = new Handler(bean, method, retries, "");
 
     this.container.register(Map.of(QUEUE_NAME, List.of(handler)));
     this.container.start();
 
-    exhaustedLatch.await(POLL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
-    verify(this.dlqRouter, never()).route(any(), any());
+    verify(this.dlqRouter, after(500).never()).route(any(), any());
   }
 
   @Test
@@ -127,9 +132,16 @@ class BearerListenerContainerDlqTest {
 
     final int retries = 3;
     final CountDownLatch dlqLatch = new CountDownLatch(1);
-    final AtomicInteger invokeCount = new AtomicInteger(0);
+    doAnswer(
+            invocation -> {
+              dlqLatch.countDown();
+              return null;
+            })
+        .when(this.dlqRouter)
+        .route(eq(DLQ_NAME), any());
 
-    final FailingBean bean = new FailingBean(invokeCount, dlqLatch, retries + 1);
+    final AtomicInteger invokeCount = new AtomicInteger(0);
+    final FailingBean bean = new FailingBean(invokeCount);
     final Method method = FailingBean.class.getMethod("handle", byte[].class);
     final Handler handler = new Handler(bean, method, retries, DLQ_NAME);
 
@@ -154,29 +166,19 @@ class BearerListenerContainerDlqTest {
     this.container.register(Map.of(QUEUE_NAME, List.of(handler)));
     this.container.start();
 
-    Thread.sleep(200);
-
-    verify(this.dlqRouter, never()).route(any(), any());
+    verify(this.dlqRouter, after(200).never()).route(any(), any());
     assertThat(neverLatch.getCount()).isEqualTo(1);
   }
 
   public static final class FailingBean {
     private final AtomicInteger invokeCount;
-    private final CountDownLatch latch;
-    private final int failUntilAttempt;
 
-    public FailingBean(
-        final AtomicInteger invokeCount, final CountDownLatch latch, final int failUntilAttempt) {
+    public FailingBean(final AtomicInteger invokeCount) {
       this.invokeCount = invokeCount;
-      this.latch = latch;
-      this.failUntilAttempt = failUntilAttempt;
     }
 
     public void handle(final byte[] body) {
       final int attempt = this.invokeCount.incrementAndGet();
-      if (attempt >= this.failUntilAttempt) {
-        this.latch.countDown();
-      }
       throw new RuntimeException("Simulated processing failure on attempt " + attempt);
     }
   }

@@ -101,8 +101,8 @@ class DeadLetterQueueIntegrationTest {
             1,
             List.of(),
             List.of(
-                new QueueRequest(SOURCE_QUEUE, true, false, false, Map.of()),
-                new QueueRequest(DEAD_LETTER_QUEUE, true, false, false, Map.of())),
+                new QueueRequest(SOURCE_QUEUE, true, false, false, false, Map.of()),
+                new QueueRequest(DEAD_LETTER_QUEUE, true, false, false, true, Map.of())),
             List.of());
     this.brokerApiFacade.createBrokerObjects(request, tenantInfo);
 

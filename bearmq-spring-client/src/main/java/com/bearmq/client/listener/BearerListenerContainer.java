@@ -17,6 +17,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -28,13 +29,13 @@ public class BearerListenerContainer implements Closeable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(BearerListenerContainer.class);
   private static final int SCHEDULED_THREAD_POOL_SIZE = 8;
-  private static final int RETRY_ATTEMPT_OFFSET = 1;
 
   private final ObjectMapper objectMapper;
   private final BearConfig config;
   private final BearMessagingTemplate template;
   private final DeadLetterQueueRouter dlqRouter;
   private final Map<String, List<Handler>> handlersByQueue;
+  private final Map<Handler, RetryTemplate> retryTemplates;
   private ScheduledExecutorService executor;
 
   public BearerListenerContainer(
@@ -47,10 +48,16 @@ public class BearerListenerContainer implements Closeable {
     this.config = config;
     this.dlqRouter = dlqRouter;
     this.handlersByQueue = new ConcurrentHashMap<>();
+    this.retryTemplates = new ConcurrentHashMap<>();
   }
 
   public void register(final Map<String, List<Handler>> map) {
     this.handlersByQueue.putAll(map);
+    for (final List<Handler> handlers : map.values()) {
+      for (final Handler handler : handlers) {
+        this.retryTemplates.put(handler, this.buildRetryTemplate(handler));
+      }
+    }
   }
 
   public void start() {
@@ -85,29 +92,31 @@ public class BearerListenerContainer implements Closeable {
 
   private void invokeWithRetry(
       final String queue, final Handler handler, final byte[] messageBody) {
-    final int maxAttempts = handler.maxRetries() + RETRY_ATTEMPT_OFFSET;
-    int attempt = 0;
-    Exception lastException = null;
-
-    while (attempt < maxAttempts) {
-      try {
-        final Method method = handler.method();
-        if (method.getParameterCount() == 0) {
-          method.invoke(handler.bean());
-          return;
-        }
-        final Class<?> paramType = method.getParameterTypes()[0];
-        this.mapAndInvoke(messageBody, paramType, method, handler);
-        return;
-      } catch (final Exception e) {
-        attempt++;
-        lastException = e;
-        LOGGER.warn(
-            "Attempt {}/{} failed for queue '{}': {}", attempt, maxAttempts, queue, e.toString());
-      }
+    final RetryTemplate retryTemplate = this.retryTemplates.get(handler);
+    try {
+      retryTemplate.execute(
+          ctx -> {
+            final Method method = handler.method();
+            if (method.getParameterCount() == 0) {
+              method.invoke(handler.bean());
+              return null;
+            }
+            final Class<?> paramType = method.getParameterTypes()[0];
+            this.mapAndInvoke(messageBody, paramType, method, handler);
+            return null;
+          });
+    } catch (final Exception e) {
+      LOGGER.warn("Retries exhausted for queue '{}': {}", queue, e.toString());
+      this.handleExhaustedRetries(queue, handler, messageBody, e);
     }
+  }
 
-    this.handleExhaustedRetries(queue, handler, messageBody, lastException);
+  private RetryTemplate buildRetryTemplate(final Handler handler) {
+    return RetryTemplate.builder()
+        .maxAttempts(handler.maxRetries() + 1)
+        .noBackoff()
+        .retryOn(Exception.class)
+        .build();
   }
 
   private void handleExhaustedRetries(
