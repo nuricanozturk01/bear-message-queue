@@ -39,7 +39,11 @@ public class BearListenerRegisterer implements ApplicationRunner {
         }
 
         for (final String queueName : bearAnnotation.queues()) {
-          byQueue.computeIfAbsent(queueName, k -> new ArrayList<>()).add(new Handler(bean, method));
+          byQueue
+              .computeIfAbsent(queueName, k -> new ArrayList<>())
+              .add(
+                  new Handler(
+                      bean, method, bearAnnotation.maxRetries(), bearAnnotation.deadLetterQueue()));
         }
       }
     }

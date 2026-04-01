@@ -28,25 +28,29 @@ public class BearerListenerContainer implements Closeable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(BearerListenerContainer.class);
   private static final int SCHEDULED_THREAD_POOL_SIZE = 8;
+  private static final int RETRY_ATTEMPT_OFFSET = 1;
 
   private final ObjectMapper objectMapper;
   private final BearConfig config;
   private final BearMessagingTemplate template;
+  private final DeadLetterQueueRouter dlqRouter;
   private final Map<String, List<Handler>> handlersByQueue;
   private ScheduledExecutorService executor;
 
   public BearerListenerContainer(
       final ObjectMapper objectMapper,
       final BearMessagingTemplate template,
-      final BearConfig config) {
+      final BearConfig config,
+      final DeadLetterQueueRouter dlqRouter) {
     this.objectMapper = objectMapper;
     this.template = template;
     this.config = config;
+    this.dlqRouter = dlqRouter;
     this.handlersByQueue = new ConcurrentHashMap<>();
   }
 
   public void register(final Map<String, List<Handler>> map) {
-    handlersByQueue.putAll(map);
+    this.handlersByQueue.putAll(map);
   }
 
   public void start() {
@@ -55,7 +59,6 @@ public class BearerListenerContainer implements Closeable {
     this.executor = Executors.newScheduledThreadPool(poolSize);
 
     final int initDelay = this.config.getInitialDelayMs();
-    /* BearConfig already clamps period; keep a floor here for tests / manual bean wiring. */
     final int period = Math.max(50, this.config.getPeriodMs());
 
     for (final Map.Entry<String, List<Handler>> entry : this.handlersByQueue.entrySet()) {
@@ -67,30 +70,57 @@ public class BearerListenerContainer implements Closeable {
     }
   }
 
-  /**
-   * One poller per {@link BearListener} method so multiple consumers on the same queue (same or
-   * different JVMs) each call {@code receive} and compete for messages instead of one receive
-   * fanning out to every handler.
-   */
   private void runOne(final String queue, final Handler handler) {
     try {
       final Optional<byte[]> bytesOpt = this.template.receive(queue);
       if (bytesOpt.isEmpty()) {
         return;
       }
-
       final byte[] messageBody = bytesOpt.get();
-      final Method method = handler.method();
-
-      if (method.getParameterCount() == 0) {
-        method.invoke(handler.bean());
-        return;
-      }
-
-      final Class<?> paramType = method.getParameterTypes()[0];
-      this.mapAndInvoke(messageBody, paramType, method, handler);
+      this.invokeWithRetry(queue, handler, messageBody);
     } catch (final Exception e) {
       LOGGER.warn("Listener invoke failed for {}: {}", queue, e.toString());
+    }
+  }
+
+  private void invokeWithRetry(
+      final String queue, final Handler handler, final byte[] messageBody) {
+    final int maxAttempts = handler.maxRetries() + RETRY_ATTEMPT_OFFSET;
+    int attempt = 0;
+    Exception lastException = null;
+
+    while (attempt < maxAttempts) {
+      try {
+        final Method method = handler.method();
+        if (method.getParameterCount() == 0) {
+          method.invoke(handler.bean());
+          return;
+        }
+        final Class<?> paramType = method.getParameterTypes()[0];
+        this.mapAndInvoke(messageBody, paramType, method, handler);
+        return;
+      } catch (final Exception e) {
+        attempt++;
+        lastException = e;
+        LOGGER.warn(
+            "Attempt {}/{} failed for queue '{}': {}", attempt, maxAttempts, queue, e.toString());
+      }
+    }
+
+    this.handleExhaustedRetries(queue, handler, messageBody, lastException);
+  }
+
+  private void handleExhaustedRetries(
+      final String queue, final Handler handler, final byte[] messageBody, final Exception cause) {
+    final String dlq = handler.deadLetterQueue();
+    if (dlq != null && !dlq.isBlank()) {
+      LOGGER.warn("Max retries exhausted for queue '{}'. Routing to DLQ '{}'.", queue, dlq);
+      this.dlqRouter.route(dlq, messageBody);
+    } else {
+      LOGGER.warn(
+          "Max retries exhausted for queue '{}'. No DLQ configured, message dropped: {}",
+          queue,
+          cause != null ? cause.toString() : "unknown");
     }
   }
 
